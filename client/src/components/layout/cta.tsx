@@ -1,6 +1,6 @@
 export default function CTA() {
   return (
-    <section className="bg-slate-900 text-white mx-6 my-20 rounded-3xl px-10 py-16 flex flex-col md:flex-row justify-between items-center gap-6">
+    <section className="bg-slate-900 text-white mx-6 my-20 rounded-3xl px-10 py-26 flex flex-col md:flex-row justify-between items-center gap-6">
       <div>
         <h2 className="text-3xl font-bold">Ready to ride with the best?</h2>
         <p className="text-slate-300 mt-2">

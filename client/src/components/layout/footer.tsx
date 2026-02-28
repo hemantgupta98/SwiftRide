@@ -14,7 +14,7 @@ export default function Home() {
     <main className="min-h-screen bg-[#0B1B2B] text-gray-300 flex flex-col justify-between">
       {/* Newsletter Section */}
       <section className="px-6 md:px-16 pt-20">
-        <div className="bg-[#16273A] border border-[#23364D] rounded-2xl p-8 md:p-12 flex flex-col md:flex-row justify-between items-center gap-8">
+        <div className="bg-[#16273A] border border-[#23364D] rounded-2xl p-10 md:p-12 flex flex-col md:flex-row justify-between items-center gap-8">
           {/* Left Content */}
           <div className="max-w-xl">
             <h2 className="text-3xl font-bold text-white mb-3">
