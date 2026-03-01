@@ -46,6 +46,7 @@ export default function HomePage() {
           <div className="flex items-center gap-3 mt-10">
             <div className="flex -space-x-2">
               {[1, 2, 3].map((i) => (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={i}
                   src={`https://i.pravatar.cc/40?img=${i}`}

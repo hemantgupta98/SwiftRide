@@ -1,6 +1,9 @@
+"use client";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function Navbar() {
+  const router = useRouter();
   return (
     <nav className="flex items-center justify-between px-5 py-6">
       <div className="text-xl font-bold text-primary">
@@ -18,7 +21,10 @@ export default function Navbar() {
         </a>
       </div>
       <div className="flex gap-4">
-        <button className="px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition">
+        <button
+          onClick={() => router.push("/authCustomer")}
+          className="px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition"
+        >
           Login
         </button>
         <button className="px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition">

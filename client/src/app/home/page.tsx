@@ -7,6 +7,7 @@ import CTA from "../../components/layout/cta";
 import Footer from "../../components/layout/footer";
 import Work from "../../components/layout/work";
 import Service from "../../components/layout/service";
+import Why from "../../components/layout/why";
 export default function Home() {
   return (
     <>
@@ -19,6 +20,7 @@ export default function Home() {
         <Booking />
         <Work />
         <Service />
+        <Why />
         <Footer />
       </div>
     </>
