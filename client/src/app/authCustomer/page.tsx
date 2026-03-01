@@ -7,7 +7,7 @@ import { User, Mail, Lock, Eye, ArrowRight, ChevronLeft } from "lucide-react";
 export default function CustomerSignupPage() {
   const router = useRouter();
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#0B1220] via-[#0E1A2F] to-[#08101E] flex flex-col items-center justify-between text-white relative">
+    <main className="min-h-screen bg-linear-to-br from-[#0B1220] via-[#0E1A2F] to-[#08101E] flex flex-col items-center justify-between text-white relative">
       <div className="pt-10 flex flex-col items-center gap-6">
         {/* Logo */}
         <div className="flex items-center gap-2 text-xl font-semibold">
@@ -75,7 +75,7 @@ export default function CustomerSignupPage() {
           {/* Social */}
           <div className="grid grid-cols-2 gap-4">
             <SocialButton label="Google" />
-            <SocialButton label="Apple" />
+            <SocialButton label="Google" />
           </div>
 
           {/* Login */}
