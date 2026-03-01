@@ -1,6 +1,7 @@
 import Navbar from "../../components/layout/navbar";
 import Hero from "../../components/layout/hero";
 import AppPreview from "../../components/ui/screen";
+import Booking from "../../components/ui/booking";
 import Features from "../../components/layout/feature";
 import CTA from "../../components/layout/cta";
 import Footer from "../../components/layout/footer";
@@ -14,6 +15,7 @@ export default function Home() {
         <AppPreview />
         <Features />
         <CTA />
+        <Booking />
         <Footer />
       </div>
     </>

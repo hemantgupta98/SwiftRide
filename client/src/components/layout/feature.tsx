@@ -20,7 +20,7 @@ const features = [
 
 export default function Features() {
   return (
-    <section className="grid md:grid-cols-3 gap-10 px-10 py-20 text-center">
+    <section className="grid md:grid-cols-3 gap-10 px-10 py-20 text-center shadow-2xl rounded-2xl">
       {features.map((f) => {
         const Icon = f.icon;
 

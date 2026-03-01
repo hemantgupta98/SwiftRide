@@ -1,13 +1,7 @@
 "use client";
+import Image from "next/image";
 
-import {
-  Facebook,
-  Twitter,
-  Instagram,
-  Linkedin,
-  Mail,
-  Bike,
-} from "lucide-react";
+import { Facebook, Twitter, Instagram, Linkedin, Mail } from "lucide-react";
 
 export default function Home() {
   return (
@@ -49,9 +43,9 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           {/* Brand */}
           <div>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-green-500 p-2 rounded-lg">
-                <Bike size={18} className="text-white" />
+            <div className="flex items-center  mb-4">
+              <div className="  p-2 rounded-lg">
+                <Image src="/logo.png" alt="logo" height={100} width={100} />
               </div>
               <span className="text-2xl font-bold text-green-500">
                 SwiftRide

@@ -5,7 +5,7 @@ export default function Hero() {
         Platform Preview
       </span>
 
-      <h1 className="text-4xl md:text-6xl font-bold">
+      <h1 className="text-4xl md:text-6xl font-bold ">
         Your ride is just <span className="text-green-400">one tap</span> away
       </h1>
 
