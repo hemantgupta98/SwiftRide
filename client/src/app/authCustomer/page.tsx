@@ -1,10 +1,28 @@
 "use client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-
+import { useForm, SubmitHandler } from "react-hook-form";
 import { User, Mail, Lock, Eye, ArrowRight, ChevronLeft } from "lucide-react";
 
+type InputData = {
+  name: string;
+  email: string;
+  password: string;
+};
+
 export default function CustomerSignupPage() {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<InputData>();
+
+  const onSubmit: SubmitHandler<InputData> = async (data) => {
+    console.log("Form data", data);
+    reset();
+  };
+
   const router = useRouter();
   return (
     <main className="min-h-screen bg-linear-to-br from-[#0B1220] via-[#0E1A2F] to-[#08101E] flex flex-col items-center justify-between text-white relative">
@@ -36,26 +54,44 @@ export default function CustomerSignupPage() {
           </p>
 
           {/* FORM */}
-          <form className="mt-8 space-y-5">
+          <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)}>
             <Input
               label="Full Name"
               placeholder="Enter your name"
               icon={<User size={18} />}
+              {...register("name", { required: "Enter your full name" })}
             />
-
+            {errors.name && (
+              <p className="m-2 text-red-500 text-sm font-semibold">
+                {errors.name.message}
+              </p>
+            )}
             <Input
-              label="Email or Phone Number"
+              label="Email "
               placeholder="name@example.com"
               icon={<Mail size={18} />}
+              {...register("email", { required: "Enter your email" })}
             />
-
+            {errors.email && (
+              <p className="m-2 text-red-500 text-sm font-semibold">
+                {errors.email.message}
+              </p>
+            )}
             <Input
               label="Password"
               placeholder="••••••••"
               type="password"
               icon={<Lock size={18} />}
               rightIcon={<Eye size={18} />}
+              {...register("password", {
+                required: "Enter your strong password",
+              })}
             />
+            {errors.password && (
+              <p className="m-2 text-red-500 text-sm font-semibold">
+                {errors.password.message}
+              </p>
+            )}
 
             <button
               type="submit"
