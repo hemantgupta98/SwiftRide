@@ -51,7 +51,7 @@ export default function CustomerSignupPage() {
   const router = useRouter();
   return (
     <main className="min-h-screen bg-linear-to-br from-[#0B1220] via-[#0E1A2F] to-[#08101E] flex flex-col items-center justify-between text-white relative">
-      <div className="pt-5 flex flex-col items-center gap-6">
+      <div className="pt-2 flex flex-col items-center gap-6">
         {/* Logo */}
         <div className="flex items-center gap-2 text-xl font-semibold">
           <div className="">
@@ -62,7 +62,7 @@ export default function CustomerSignupPage() {
         {/* Back */}
         <button
           onClick={() => router.push("/home")}
-          className="flex items-center gap-2 text-sm text-gray-300 hover:text-white"
+          className="flex items-center mb-2 gap-2 text-sm text-gray-300 hover:text-white"
         >
           <ChevronLeft size={16} />
           Back to Role Selection
@@ -129,6 +129,11 @@ export default function CustomerSignupPage() {
                     },
                   })}
                 />
+                {customerErrors.email && (
+                  <p className="text-red-500 text-sm">
+                    {customerErrors.email.message}
+                  </p>
+                )}
 
                 <Input
                   label="Password"
@@ -139,6 +144,11 @@ export default function CustomerSignupPage() {
                     required: "Enter your strong password",
                   })}
                 />
+                {customerErrors.email && (
+                  <p className="text-red-500 text-sm">
+                    {customerErrors.email.message}
+                  </p>
+                )}
 
                 <button
                   type="submit"
