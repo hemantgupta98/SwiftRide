@@ -228,18 +228,17 @@ export default function CustomerSignupPage() {
 
           {/* Login */}
           <p className="mt-6 text-center text-sm text-gray-500">
-            Already have an account?{" "}
+            Create an account?{" "}
             <span
-              onClick={() => router.push("/authCuLogin")}
+              onClick={() => router.push("/authCustomer")}
               className="text-green-600 font-medium cursor-pointer"
             >
-              Log In
+              Sign In
             </span>
           </p>
         </div>
       </div>
 
-      {/* ================= FOOTER ================= */}
       <div className="pb-6 text-xs text-gray-500 text-center px-4">
         <p>
           By clicking continue, you agree to our{" "}

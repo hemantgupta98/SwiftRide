@@ -1,9 +1,24 @@
 "use client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useForm, SubmitHandler } from "react-hook-form";
-import { User, Mail, Lock, ChevronLeft } from "lucide-react";
+import { useForm, SubmitHandler, Controller } from "react-hook-form";
+import {
+  User,
+  Mail,
+  Lock,
+  ChevronLeft,
+  BikeIcon,
+  Bike,
+  Car,
+} from "lucide-react";
 import { forwardRef, useState } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 
 type InputData = {
   name: string;
@@ -34,6 +49,7 @@ export default function CustomerSignupPage() {
     handleSubmit: handleRiderSubmit,
     formState: { errors: riderErrors },
     reset: resetRider,
+    control: riderControl,
   } = riderForm;
 
   const onSubmitCustomer: SubmitHandler<InputData> = async (data) => {
@@ -203,34 +219,75 @@ export default function CustomerSignupPage() {
                   </p>
                 )}
 
-                <div className=" grid grid-cols-2 gap-4">
-                  <Input
-                    label="Vehicle Type"
-                    placeholder="Bike / Car"
-                    icon={<User size={18} />}
-                    {...registerRider("vechileType", {
-                      required: "Enter vehicle type",
-                    })}
-                  />
-                  {riderErrors.vechileType && (
-                    <p className="text-red-500 text-sm">
-                      {riderErrors.vechileType.message}
-                    </p>
-                  )}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Vehicle Type */}
+                  <div className="space-y-1">
+                    <label className="text-md font-medium text-gray-700">
+                      Vehicle type
+                    </label>
 
-                  <Input
-                    label="Vehicle Number"
-                    placeholder="DL01AB1234"
-                    icon={<Lock size={18} />}
-                    {...registerRider("vechileNumber", {
-                      required: "Enter vehicle number",
-                    })}
-                  />
-                  {riderErrors.vechileNumber && (
-                    <p className="text-red-500 text-sm">
-                      {riderErrors.vechileNumber.message}
-                    </p>
-                  )}
+                    <Controller
+                      name="vechileType"
+                      control={riderControl}
+                      rules={{ required: "Select vehicle type" }}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select vehicle type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="car">
+                              <div className="flex items-center gap-2">
+                                <Car size={14} className="text-red-700" />
+                                <span>Car</span>
+                              </div>
+                            </SelectItem>
+
+                            <SelectItem value="bike">
+                              <div className="flex items-center gap-2">
+                                <Bike size={14} className="text-blue-500" />
+                                <span>Bike</span>
+                              </div>
+                            </SelectItem>
+
+                            <SelectItem value="ev-bike">
+                              <div className="flex items-center gap-2">
+                                <BikeIcon size={14} className="text-blue-300" />
+                                <span>EV-Bike</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+
+                    {riderErrors.vechileType && (
+                      <p className="text-red-500 text-sm">
+                        {riderErrors.vechileType.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Vehicle Number */}
+                  <div className="">
+                    <Input
+                      label="Vehicle Number"
+                      placeholder="DL01AB1234"
+                      icon={<Lock size={18} />}
+                      {...registerRider("vechileNumber", {
+                        required: "Enter vehicle number",
+                      })}
+                    />
+
+                    {riderErrors.vechileNumber && (
+                      <p className="text-red-500 text-sm">
+                        {riderErrors.vechileNumber.message}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <button
