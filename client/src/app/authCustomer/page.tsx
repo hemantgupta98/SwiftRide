@@ -2,7 +2,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useForm, SubmitHandler } from "react-hook-form";
-import { User, Mail, Lock, Eye, ArrowRight, ChevronLeft } from "lucide-react";
+import { User, Mail, Lock, ChevronLeft } from "lucide-react";
 import { forwardRef, useState } from "react";
 
 type InputData = {
@@ -75,7 +75,7 @@ export default function CustomerSignupPage() {
             <button
               onClick={() => setMode("customer")}
               className={`flex-1 py-2 rounded-lg font-medium ${
-                mode === "customer" ? "bg-blue-500 text-white" : "border"
+                mode === "customer" ? "bg-green-500 text-white" : "border"
               }`}
             >
               Customer
@@ -83,7 +83,7 @@ export default function CustomerSignupPage() {
             <button
               onClick={() => setMode("rider")}
               className={`flex-1 py-2 rounded-lg font-medium ${
-                mode === "rider" ? "bg-blue-500 text-white" : "border"
+                mode === "rider" ? "bg-green-500 text-white" : "border"
               }`}
             >
               Rider
@@ -123,6 +123,10 @@ export default function CustomerSignupPage() {
                   icon={<Mail size={18} />}
                   {...registerCustomer("email", {
                     required: "Enter your email",
+                    pattern: {
+                      value: /^\S+@\S+\.\S+$/,
+                      message: "Enter a valid email",
+                    },
                   })}
                 />
 
@@ -138,7 +142,7 @@ export default function CustomerSignupPage() {
 
                 <button
                   type="submit"
-                  className="w-full bg-green-500 py-3 rounded-lg"
+                  className="w-full bg-green-500 font-medium text-white py-3 rounded-lg"
                 >
                   Continue as Customer
                 </button>
@@ -165,35 +169,63 @@ export default function CustomerSignupPage() {
                     required: "Enter your full name",
                   })}
                 />
+                {riderErrors.name && (
+                  <p className="text-red-500 text-sm">
+                    {riderErrors.name.message}
+                  </p>
+                )}
 
                 <Input
                   label="Email"
                   placeholder="name@example.com"
                   icon={<Mail size={18} />}
-                  {...registerRider("email", { required: "Enter your email" })}
-                />
-
-                <Input
-                  label="Vehicle Type"
-                  placeholder="Bike / Car"
-                  icon={<User size={18} />}
-                  {...registerRider("vechileType", {
-                    required: "Enter vehicle type",
+                  {...registerRider("email", {
+                    required: "Enter your email",
+                    pattern: {
+                      value: /^\S+@\S+\.\S+$/,
+                      message: "Enter a valid email",
+                    },
                   })}
                 />
+                {riderErrors.email && (
+                  <p className="text-red-500 text-sm">
+                    {riderErrors.email.message}
+                  </p>
+                )}
 
-                <Input
-                  label="Vehicle Number"
-                  placeholder="DL01AB1234"
-                  icon={<Lock size={18} />}
-                  {...registerRider("vechileNumber", {
-                    required: "Enter vehicle number",
-                  })}
-                />
+                <div className=" grid grid-cols-2 gap-4">
+                  <Input
+                    label="Vehicle Type"
+                    placeholder="Bike / Car"
+                    icon={<User size={18} />}
+                    {...registerRider("vechileType", {
+                      required: "Enter vehicle type",
+                    })}
+                  />
+                  {riderErrors.vechileType && (
+                    <p className="text-red-500 text-sm">
+                      {riderErrors.vechileType.message}
+                    </p>
+                  )}
+
+                  <Input
+                    label="Vehicle Number"
+                    placeholder="DL01AB1234"
+                    icon={<Lock size={18} />}
+                    {...registerRider("vechileNumber", {
+                      required: "Enter vehicle number",
+                    })}
+                  />
+                  {riderErrors.vechileNumber && (
+                    <p className="text-red-500 text-sm">
+                      {riderErrors.vechileNumber.message}
+                    </p>
+                  )}
+                </div>
 
                 <button
                   type="submit"
-                  className="w-full bg-green-500 py-3 rounded-lg"
+                  className="w-full bg-green-500 font-medium text-white py-3 rounded-lg"
                 >
                   Apply as a Rider
                 </button>
