@@ -2,7 +2,11 @@
 import React from "react";
 
 const page = () => {
-  return <div>page</div>;
+  return (
+    <>
+      <div>start ride page</div>
+    </>
+  );
 };
 
 export default page;
