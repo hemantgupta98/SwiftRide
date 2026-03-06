@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   User,
   Star,
@@ -10,7 +12,6 @@ import {
   Gift,
   Award,
   Ticket,
-  Coins,
   Bell,
   ChevronRight,
 } from "lucide-react";
@@ -18,20 +19,25 @@ import {
 type MenuItem = {
   title: string;
   subtitle?: string;
+  href?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   icon: any;
 };
 
 const menuItems: MenuItem[] = [
-  { title: "Help", icon: HelpCircle },
-  { title: "Payment", icon: Wallet },
-  { title: "My Rides", icon: Clock },
-  { title: "Safety", icon: Shield },
-  { title: "Refer and Earn", subtitle: "Get ₹50", icon: Gift },
-  { title: "My Rewards", icon: Award },
-  { title: "Power Pass", icon: Ticket },
-  { title: "Rapido Coins", icon: Coins },
-  { title: "Notifications", icon: Bell },
+  { title: "Help", icon: HelpCircle, href: "/container/help" },
+  { title: "Payment", icon: Wallet, href: "/container/payment" },
+  { title: "My Rides", icon: Clock, href: "/container/pass" },
+  { title: "Safety", icon: Shield, href: "/container/saftey" },
+  {
+    title: "Refer and Earn",
+    subtitle: "Get ₹50",
+    icon: Gift,
+    href: "/container/refer",
+  },
+  { title: "My Rewards", icon: Award, href: "/container/rewards" },
+  { title: "Power Pass", icon: Ticket, href: "/container/pass" },
+  { title: "Notifications", icon: Bell, href: "/container/notification" },
 ];
 
 export default function ProfilePage() {
@@ -49,11 +55,12 @@ export default function ProfilePage() {
               <div className="bg-gray-100 p-3 rounded-full">
                 <User size={22} className="text-gray-600" />
               </div>
-
-              <div>
-                <p className="font-semibold text-gray-800">Hem Gupta</p>
-                <p className="text-sm text-gray-500">9867742834</p>
-              </div>
+              <Link href="/container/user" className="block">
+                <div>
+                  <p className="font-semibold text-gray-800">Hem Gupta</p>
+                  <p className="text-sm text-gray-500">9867742834</p>
+                </div>
+              </Link>
             </div>
 
             <ChevronRight className="text-gray-400" />
@@ -77,12 +84,11 @@ export default function ProfilePage() {
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           {menuItems.map((item, index) => {
             const Icon = item.icon;
+            const baseClassName =
+              "flex items-center justify-between px-4 py-4 border-b last:border-none hover:bg-gray-50 cursor-pointer";
 
-            return (
-              <div
-                key={index}
-                className="flex items-center justify-between px-4 py-4 border-b last:border-none hover:bg-gray-50 cursor-pointer"
-              >
+            const content = (
+              <>
                 <div className="flex items-center gap-3">
                   <Icon className="text-gray-500" size={20} />
 
@@ -96,6 +102,20 @@ export default function ProfilePage() {
                 </div>
 
                 <ChevronRight className="text-gray-400" size={20} />
+              </>
+            );
+
+            if (item.href) {
+              return (
+                <Link key={index} href={item.href} className={baseClassName}>
+                  {content}
+                </Link>
+              );
+            }
+
+            return (
+              <div key={index} className={baseClassName}>
+                {content}
               </div>
             );
           })}
