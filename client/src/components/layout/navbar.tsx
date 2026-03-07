@@ -22,12 +22,15 @@ export default function Navbar() {
       </div>
       <div className="flex gap-4">
         <button
-          onClick={() => router.push("/authCustomer")}
+          onClick={() => router.push("/authCuLogin")}
           className="px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition"
         >
           Login
         </button>
-        <button className="px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition">
+        <button
+          onClick={() => router.push("/authCustomer")}
+          className="px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition"
+        >
           Get start
         </button>
       </div>
