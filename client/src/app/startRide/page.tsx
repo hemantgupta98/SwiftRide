@@ -4,7 +4,9 @@ import React from "react";
 const page = () => {
   return (
     <>
-      <div>start ride page</div>
+      <main>
+        <h1>Book your ride</h1>
+      </main>
     </>
   );
 };
