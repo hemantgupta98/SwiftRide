@@ -31,9 +31,14 @@ const page = () => {
             />
             <Input className="pl-10" placeholder="Drop location" />
           </div>
-          <button className=" mt-5 inline-flex items-center gap-2 bg-gray-200 rounded-md px-3 py-2 text-black font-semibold whitespace-nowrap">
-            Book Ride
-          </button>
+          <div className="flex gap-5">
+            <button className=" mt-5 inline-flex items-center gap-2 bg-gray-200 rounded-md px-3 py-2 text-black font-semibold whitespace-nowrap">
+              Book Ride
+            </button>
+            <button className=" mt-5 inline-flex items-center gap-2 bg-gray-200 rounded-md px-3 py-2 text-red-400 font-semibold whitespace-nowrap">
+              Cancel Ride
+            </button>
+          </div>
           <div className="flex items-center gap-4 my-6">
             <div className="flex-1 h-px bg-gray-200" />
             <div className="flex-1 h-px bg-gray-200" />
@@ -45,7 +50,7 @@ const page = () => {
             </button>
           </div>
         </form>
-        <div className="rounded-2xl border border-orange-100 bg-linear-to-br from-orange-50 via-white mt-5 to-amber-50 p-5 shadow-sm">
+        <div className="rounded-2xl border border-orange-100 bg-linear-to-br from-orange-50 via-white mt-5 to-amber-50 p-5 shadow-2xl">
           <div className="mb-4 flex flex-wrap gap-2">
             <span className="rounded-full bg-orange-500 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-600">
               SwiftRide

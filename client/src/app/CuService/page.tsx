@@ -93,12 +93,15 @@ const CuServicePage = () => {
           </p>
 
           <p>
-            SwiftRide services are available in Ranchi district, Jharkhand,
-            India. We are actively working to expand our services to more cities
-            and regions in the near future so that more people can benefit from
-            our safe and convenient ride solutions. As we continue to grow, our
-            commitment remains focused on providing dependable transportation,
-            professional drivers, and a seamless ride experience for all users.
+            <span className="rounded-md px-2 py-1 font-semibold text-orange-600 text-[22px]">
+              SwiftRide
+            </span>{" "}
+            services are available in Ranchi district, Jharkhand, India. We are
+            actively working to expand our services to more cities and regions
+            in the near future so that more people can benefit from our safe and
+            convenient ride solutions. As we continue to grow, our commitment
+            remains focused on providing dependable transportation, professional
+            drivers, and a seamless ride experience for all users.
           </p>
         </div>
       </div>
