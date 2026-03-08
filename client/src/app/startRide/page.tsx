@@ -5,9 +5,12 @@ import dynamic from "next/dynamic";
 import React, { useState } from "react";
 import { Input } from "../../components/ui/inputApi";
 import { MapPin, Flag } from "lucide-react";
-import RouteMap from "../../components/ui/routeMap";
 
 const LeafletMap = dynamic(() => import("../../components/ui/map"), {
+  ssr: false,
+});
+
+const RouteMap = dynamic(() => import("../../components/ui/routeMap"), {
   ssr: false,
 });
 
