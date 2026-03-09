@@ -1,40 +1,56 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import dynamic from "next/dynamic";
-import React, { useState } from "react";
-import { Input } from "../../components/ui/inputApi";
-import { MapPin, Flag } from "lucide-react";
+import { useEffect, useState } from "react";
+import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
-const LeafletMap = dynamic(() => import("../../components/ui/map"), {
-  ssr: false,
-});
+type LatLng = [number, number];
 
-const RouteMap = dynamic(() => import("../../components/ui/routeMap"), {
-  ssr: false,
-});
-
-const Page = () => {
+export default function Page() {
   const [pickup, setPickup] = useState("");
   const [drop, setDrop] = useState("");
 
+  const [pickupSuggestions, setPickupSuggestions] = useState<any[]>([]);
+  const [dropSuggestions, setDropSuggestions] = useState<any[]>([]);
+
   const [pickupLocation, setPickupLocation] = useState<any>(null);
   const [dropLocation, setDropLocation] = useState<any>(null);
-  const [route, setRoute] = useState<any>(null);
-  const [showMap, setShowMap] = useState(false);
 
-  // 🔎 Search location using Nominatim
+  const [route, setRoute] = useState<LatLng[]>([]);
+  const [distance, setDistance] = useState("");
+  const [duration, setDuration] = useState<number | string>("");
+
+  const [userPosition, setUserPosition] = useState<LatLng | null>(null);
+
+  // search location (Ranchi only)
   const searchLocation = async (query: string) => {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${query}&format=json`,
+      `https://nominatim.openstreetmap.org/search?q=${query},Ranchi,Jharkhand,India&format=json&limit=5`,
     );
-
-    const data = await res.json();
-
-    return data[0];
+    return res.json();
   };
 
-  // 🛣️ Get route using OSRM
+  // pickup search
+  const handlePickupChange = async (value: string) => {
+    setPickup(value);
+    if (value.length < 3) return;
+
+    const results = await searchLocation(value);
+    setPickupSuggestions(results);
+  };
+
+  // drop search
+  const handleDropChange = async (value: string) => {
+    setDrop(value);
+    if (value.length < 3) return;
+
+    const results = await searchLocation(value);
+    setDropSuggestions(results);
+  };
+
+  // get route
   const getRoute = async (pickup: any, drop: any) => {
     const res = await fetch(
       `https://router.project-osrm.org/route/v1/driving/${pickup.lon},${pickup.lat};${drop.lon},${drop.lat}?overview=full&geometries=geojson`,
@@ -42,123 +58,149 @@ const Page = () => {
 
     const data = await res.json();
 
-    const coords = data.routes[0].geometry.coordinates;
+    const routeData = data.routes[0];
+
+    const coords = routeData.geometry.coordinates.map((c: any) => [c[1], c[0]]);
 
     setRoute(coords);
+
+    setDistance((routeData.distance / 1000).toFixed(2));
+    setDuration(Math.ceil(routeData.duration / 60));
   };
 
-  // 🚕 Book Ride
-  const handleBookRide = async (e: React.MouseEvent) => {
-    e.preventDefault();
+  // book ride
+  const handleBookRide = async () => {
+    if (!dropLocation) {
+      alert("Please select drop location");
+      return;
+    }
 
-    if (!pickup || !drop) return;
+    // case 1: pickup selected
+    if (pickupLocation) {
+      await getRoute(pickupLocation, dropLocation);
+    }
 
-    const pickupData = await searchLocation(pickup);
-    const dropData = await searchLocation(drop);
-
-    if (!pickupData || !dropData) return;
-
-    setPickupLocation(pickupData);
-    setDropLocation(dropData);
-
-    await getRoute(pickupData, dropData);
-
-    setShowMap(true);
+    // case 2: use current GPS
+    else if (userPosition) {
+      await getRoute(
+        { lat: userPosition[0], lon: userPosition[1] },
+        dropLocation,
+      );
+    } else {
+      alert("Location not detected");
+    }
   };
 
-  // ❌ Cancel Ride
-  const handleCancelRide = (e: React.MouseEvent) => {
-    e.preventDefault();
-
-    setRoute(null);
-    setPickupLocation(null);
-    setDropLocation(null);
-    setShowMap(false);
-
-    setPickup("");
-    setDrop("");
-  };
+  // reroute if user moves
+  useEffect(() => {
+    if (userPosition && dropLocation) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      getRoute({ lat: userPosition[0], lon: userPosition[1] }, dropLocation);
+    }
+  }, [userPosition]);
 
   return (
-    <>
-      <div className="min-h-screen rounded-2xl shadow-2xl m-5 p-5 space-y-5">
-        <h1 className="text-orange-400 text-3xl font-semibold">
-          Book your ride
-        </h1>
+    <div className="p-6 space-y-6">
+      <h1 className="text-3xl font-bold text-orange-500">SwiftRide Booking</h1>
 
-        <form className="mt-5 p-3">
-          {/* Pickup */}
-          <label className="block mb-2 font-semibold">Pickup location</label>
+      {/* Pickup */}
+      <div>
+        <input
+          value={pickup}
+          onChange={(e) => handlePickupChange(e.target.value)}
+          placeholder="Pickup location"
+          className="border p-2 w-full"
+        />
 
-          <div className="relative mb-4">
-            <MapPin
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-green-600"
-              size={18}
-            />
-
-            <Input
-              value={pickup}
-              onChange={(e) => setPickup(e.target.value)}
-              className="pl-10"
-              placeholder="Pick-up location"
-            />
+        {pickupSuggestions.map((item) => (
+          <div
+            key={item.place_id}
+            className="p-2 border cursor-pointer hover:bg-gray-100"
+            onClick={() => {
+              setPickup(item.display_name);
+              setPickupLocation(item);
+              setPickupSuggestions([]);
+            }}
+          >
+            {item.display_name}
           </div>
-
-          {/* Drop */}
-          <label className="block mb-2 font-semibold">Drop location</label>
-
-          <div className="relative">
-            <Flag
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-red-600"
-              size={18}
-            />
-
-            <Input
-              value={drop}
-              onChange={(e) => setDrop(e.target.value)}
-              className="pl-10"
-              placeholder="Drop location"
-            />
-          </div>
-
-          {/* Buttons */}
-          <div className="flex gap-5">
-            <button
-              type="button"
-              onClick={handleBookRide}
-              className="mt-5 inline-flex items-center gap-2 bg-green-500 text-white rounded-md px-4 py-2 font-semibold"
-            >
-              Book Ride
-            </button>
-
-            <button
-              type="button"
-              onClick={handleCancelRide}
-              className="mt-5 inline-flex items-center gap-2 bg-red-500 text-white rounded-md px-4 py-2 font-semibold"
-            >
-              Cancel Ride
-            </button>
-          </div>
-
-          {/* Route Map */}
-          <div className="mt-8">
-            {showMap && pickupLocation && dropLocation && route && (
-              <RouteMap
-                route={route}
-                pickup={pickupLocation}
-                drop={dropLocation}
-              />
-            )}
-          </div>
-        </form>
-
-        {/* Default Map */}
-        <div className="mt-6">
-          <LeafletMap />
-        </div>
+        ))}
       </div>
-    </>
-  );
-};
 
-export default Page;
+      {/* Drop */}
+      <div>
+        <input
+          value={drop}
+          onChange={(e) => handleDropChange(e.target.value)}
+          placeholder="Drop location"
+          className="border p-2 w-full"
+        />
+
+        {dropSuggestions.map((item) => (
+          <div
+            key={item.place_id}
+            className="p-2 border cursor-pointer hover:bg-gray-100"
+            onClick={() => {
+              setDrop(item.display_name);
+              setDropLocation(item);
+              setDropSuggestions([]);
+            }}
+          >
+            {item.display_name}
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={handleBookRide}
+        className="bg-green-500 text-white px-6 py-2 rounded"
+      >
+        Book Ride
+      </button>
+
+      {/* Distance + Time */}
+      {distance && (
+        <div className="text-lg font-semibold">
+          Distance: {distance} km | Time: {duration} min
+        </div>
+      )}
+
+      {/* Map */}
+      <div className="h-[500px] w-full">
+        <MapContainer
+          center={userPosition || [23.3441, 85.3096]}
+          zoom={13}
+          style={{ height: "100%", width: "100%" }}
+        >
+          <TileLayer
+            attribution="© OpenStreetMap"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+
+          {/* user */}
+          {userPosition && <Marker position={userPosition} />}
+
+          {/* pickup */}
+          {pickupLocation && (
+            <Marker
+              position={[
+                Number(pickupLocation.lat),
+                Number(pickupLocation.lon),
+              ]}
+            />
+          )}
+
+          {/* drop */}
+          {dropLocation && (
+            <Marker
+              position={[Number(dropLocation.lat), Number(dropLocation.lon)]}
+            />
+          )}
+
+          {/* route */}
+          {route.length > 0 && <Polyline positions={route} />}
+        </MapContainer>
+      </div>
+    </div>
+  );
+}
