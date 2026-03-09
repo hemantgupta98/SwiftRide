@@ -5,7 +5,7 @@ import { forwardRef, useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
 
 import "leaflet/dist/leaflet.css";
-import { MapPin, Flag } from "lucide-react";
+import { MapPin, Flag, MoreVertical } from "lucide-react";
 import { Toaster, toast } from "sonner";
 type LatLng = [number, number];
 
@@ -23,6 +23,8 @@ export default function Page() {
   const [isRouteLoading, setIsRouteLoading] = useState(false);
   const [distance, setDistance] = useState("");
   const [duration, setDuration] = useState<number | string>("");
+  const [isRideBooked, setIsRideBooked] = useState(false);
+  const [isRideMenuOpen, setIsRideMenuOpen] = useState(false);
 
   const fare = distance ? Number(distance) * 15 : 0;
   const hasBothLocations = Boolean(pickupLocation && dropLocation);
@@ -120,7 +122,23 @@ export default function Page() {
       return;
     }
 
+    setIsRideBooked(true);
     toast.success("Booking ride complete. Your ride is confirmed.");
+  };
+
+  const resetRideState = () => {
+    setRoute([]);
+    setPickupLocation(null);
+    setDropLocation(null);
+
+    setPickup("");
+    setDrop("");
+    setPickupSuggestions([]);
+    setDropSuggestions([]);
+    setDistance("");
+    setDuration("");
+    setIsRideBooked(false);
+    setIsRideMenuOpen(false);
   };
 
   // Auto-generate live route details as soon as both locations are selected.
@@ -135,110 +153,118 @@ export default function Page() {
     getRoute(pickupLocation, dropLocation);
   }, [pickupLocation, dropLocation]);
 
-  const handleCancelRide = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleCancelRide = (isFromBookedState: boolean) => {
+    if (isFromBookedState) {
+      const wantsToCancel = window.confirm(
+        "Are you sure you want to cancel a ride?",
+      );
 
-    setRoute([]);
-    setPickupLocation(null);
-    setDropLocation(null);
+      if (!wantsToCancel) {
+        return;
+      }
+    }
 
-    setPickup("");
-    setDrop("");
-    setPickupSuggestions([]);
-    setDropSuggestions([]);
-    setDistance("");
-    setDuration("");
+    resetRideState();
+    if (isFromBookedState) {
+      toast.info("Your booked ride has been cancelled.");
+    }
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold text-orange-500">SwiftRide Booking</h1>
+    <div className="relative p-6 space-y-6 min-h-screen">
       <Toaster richColors position="top-center" />
-      {/* Pickup */}
-      <label className="block mb-2 font-semibold">Pickup location</label>
-      <div className="relative mb-4">
-        <MapPin
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-green-600"
-          size={18}
-        />
-        <Input
-          value={pickup}
-          onChange={(e: { target: { value: string } }) =>
-            handlePickupChange(e.target.value)
-          }
-          placeholder="Pickup location"
-          className="w-full pl-10"
-        />
+      {!isRideBooked && (
+        <>
+          <h1 className="text-3xl font-bold text-orange-500">
+            SwiftRide Booking
+          </h1>
+          {/* Pickup */}
+          <label className="block mb-2 font-semibold">Pickup location</label>
+          <div className="relative mb-4">
+            <MapPin
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-green-600"
+              size={18}
+            />
+            <Input
+              value={pickup}
+              onChange={(e: { target: { value: string } }) =>
+                handlePickupChange(e.target.value)
+              }
+              placeholder="Pickup location"
+              className="w-full pl-10"
+            />
 
-        {pickupSuggestions.map((item) => (
-          <div
-            key={item.place_id}
-            className="p-2 border cursor-pointer hover:bg-gray-100"
-            onClick={() => {
-              setPickup(item.display_name);
-              setPickupLocation(item);
-              setPickupSuggestions([]);
-            }}
-          >
-            {item.display_name}
+            {pickupSuggestions.map((item) => (
+              <div
+                key={item.place_id}
+                className="p-2 border cursor-pointer hover:bg-gray-100"
+                onClick={() => {
+                  setPickup(item.display_name);
+                  setPickupLocation(item);
+                  setPickupSuggestions([]);
+                }}
+              >
+                {item.display_name}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Drop */}
-      <label className="block mb-2 font-semibold">Drop location</label>
-      <div className="relative mb-4">
-        <Flag
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-red-600"
-          size={18}
-        />
-        <Input
-          value={drop}
-          onChange={(e: { target: { value: string } }) =>
-            handleDropChange(e.target.value)
-          }
-          placeholder="Drop location"
-          className="w-full pl-10"
-        />
+          {/* Drop */}
+          <label className="block mb-2 font-semibold">Drop location</label>
+          <div className="relative mb-4">
+            <Flag
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-red-600"
+              size={18}
+            />
+            <Input
+              value={drop}
+              onChange={(e: { target: { value: string } }) =>
+                handleDropChange(e.target.value)
+              }
+              placeholder="Drop location"
+              className="w-full pl-10"
+            />
 
-        {dropSuggestions.map((item) => (
-          <div
-            key={item.place_id}
-            className="p-2 border cursor-pointer hover:bg-gray-100"
-            onClick={() => {
-              setDrop(item.display_name);
-              setDropLocation(item);
-              setDropSuggestions([]);
-            }}
-          >
-            {item.display_name}
+            {dropSuggestions.map((item) => (
+              <div
+                key={item.place_id}
+                className="p-2 border cursor-pointer hover:bg-gray-100"
+                onClick={() => {
+                  setDrop(item.display_name);
+                  setDropLocation(item);
+                  setDropSuggestions([]);
+                }}
+              >
+                {item.display_name}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <div className=" flex gap-5">
-        <button
-          onClick={handleBookRide}
-          className="mt-5 inline-flex items-center gap-2 bg-green-500 text-white rounded-md px-4 py-2 font-semibold"
-          type="button"
-        >
-          Book Ride
-        </button>
+          <div className="flex gap-5">
+            <button
+              onClick={handleBookRide}
+              className="mt-5 inline-flex items-center gap-2 bg-green-500 text-white rounded-md px-4 py-2 font-semibold"
+              type="button"
+            >
+              Book Ride
+            </button>
 
-        <button
-          type="button"
-          onClick={handleCancelRide}
-          className="mt-5 inline-flex items-center gap-2 bg-red-500 text-white rounded-md px-4 py-2 font-semibold"
-        >
-          Cancel Ride
-        </button>
-      </div>
+            <button
+              type="button"
+              onClick={() => handleCancelRide(false)}
+              className="mt-5 inline-flex items-center gap-2 bg-red-500 text-white rounded-md px-4 py-2 font-semibold"
+            >
+              Cancel Ride
+            </button>
+          </div>
 
-      {/* Distance + Time */}
-      {hasBothLocations && distance && (
-        <div className="text-lg font-semibold">
-          Distance: {distance} km | Time: {duration} min | Cost: Rs.{" "}
-          {fare.toFixed(2)}
-        </div>
+          {/* Distance + Time */}
+          {hasBothLocations && distance && (
+            <div className="text-lg font-semibold">
+              Distance: {distance} km | Time: {duration} min | Cost: Rs.{" "}
+              {fare.toFixed(2)}
+            </div>
+          )}
+        </>
       )}
 
       {/* Map */}
@@ -279,6 +305,37 @@ export default function Page() {
 
       {hasBothLocations && isRouteLoading && (
         <p className="text-sm text-gray-600">Loading live tracking route...</p>
+      )}
+
+      {isRideBooked && (
+        <div className="fixed right-6 bottom-6 z-50">
+          {isRideMenuOpen && (
+            <div className="mb-3 w-64 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
+              <p className="text-sm font-semibold text-gray-900">
+                Cancel your ride
+              </p>
+              <p className="mt-1 text-xs text-gray-600">
+                If your plan changed, you can cancel your booked ride here.
+              </p>
+              <button
+                type="button"
+                onClick={() => handleCancelRide(true)}
+                className="mt-3 w-full rounded-md bg-red-500 px-3 py-2 text-sm font-semibold text-white hover:bg-red-600"
+              >
+                Cancel Ride
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            aria-label="Ride options"
+            onClick={() => setIsRideMenuOpen((prev) => !prev)}
+            className="ml-auto flex h-12 w-12 mb-20 items-center justify-center rounded-full bg-black text-white shadow-lg"
+          >
+            <MoreVertical size={22} />
+          </button>
+        </div>
       )}
     </div>
   );
