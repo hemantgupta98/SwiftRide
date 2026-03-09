@@ -20,14 +20,12 @@ export default function Page() {
   const [dropLocation, setDropLocation] = useState<any>(null);
 
   const [route, setRoute] = useState<LatLng[]>([]);
-
-  const [showMap, setShowMap] = useState(false);
+  const [isRouteLoading, setIsRouteLoading] = useState(false);
   const [distance, setDistance] = useState("");
   const [duration, setDuration] = useState<number | string>("");
 
   const fare = distance ? Number(distance) * 15 : 0;
-
-  const [userPosition, setUserPosition] = useState<LatLng | null>(null);
+  const hasBothLocations = Boolean(pickupLocation && dropLocation);
 
   // search location (Ranchi only)
   const searchLocation = async (query: string) => {
@@ -40,7 +38,14 @@ export default function Page() {
   // pickup search
   const handlePickupChange = async (value: string) => {
     setPickup(value);
-    if (value.length < 3) return;
+    setPickupLocation(null);
+    setRoute([]);
+    setDistance("");
+    setDuration("");
+    if (value.length < 3) {
+      setPickupSuggestions([]);
+      return;
+    }
 
     const results = await searchLocation(value);
     setPickupSuggestions(results);
@@ -49,7 +54,14 @@ export default function Page() {
   // drop search
   const handleDropChange = async (value: string) => {
     setDrop(value);
-    if (value.length < 3) return;
+    setDropLocation(null);
+    setRoute([]);
+    setDistance("");
+    setDuration("");
+    if (value.length < 3) {
+      setDropSuggestions([]);
+      return;
+    }
 
     const results = await searchLocation(value);
     setDropSuggestions(results);
@@ -57,52 +69,71 @@ export default function Page() {
 
   // get route
   const getRoute = async (pickup: any, drop: any) => {
-    const res = await fetch(
-      `https://router.project-osrm.org/route/v1/driving/${pickup.lon},${pickup.lat};${drop.lon},${drop.lat}?overview=full&geometries=geojson`,
-    );
+    try {
+      setIsRouteLoading(true);
+      const res = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${pickup.lon},${pickup.lat};${drop.lon},${drop.lat}?overview=full&geometries=geojson`,
+      );
 
-    const data = await res.json();
+      const data = await res.json();
+      const routeData = data?.routes?.[0];
 
-    const routeData = data.routes[0];
+      if (!routeData) {
+        throw new Error("No route found");
+      }
 
-    const coords = routeData.geometry.coordinates.map((c: any) => [c[1], c[0]]);
+      const coords = routeData.geometry.coordinates.map((c: any) => [
+        c[1],
+        c[0],
+      ]);
 
-    setRoute(coords);
-
-    setDistance((routeData.distance / 1000).toFixed(2));
-    setDuration(Math.ceil(routeData.duration / 60));
+      setRoute(coords);
+      setDistance((routeData.distance / 1000).toFixed(2));
+      setDuration(Math.ceil(routeData.duration / 60));
+    } catch {
+      setRoute([]);
+      setDistance("");
+      setDuration("");
+      toast.error("Unable to fetch route. Please try different locations.");
+    } finally {
+      setIsRouteLoading(false);
+    }
   };
 
   // book ride
-  const handleBookRide = async () => {
-    if (!dropLocation) {
-      toast.warning("Please select drop location");
+  const handleBookRide = () => {
+    if (!pickupLocation || !dropLocation) {
+      toast.warning("Please select both pickup and drop locations");
       return;
     }
 
-    // case 1: pickup selected
-    if (pickupLocation) {
-      await getRoute(pickupLocation, dropLocation);
+    if (isRouteLoading || route.length === 0) {
+      toast.warning("Route is loading. Please wait a moment.");
+      return;
     }
 
-    // case 2: use current GPS
-    else if (userPosition) {
-      await getRoute(
-        { lat: userPosition[0], lon: userPosition[1] },
-        dropLocation,
-      );
-    } else {
-      alert("Location not detected");
+    const isConfirmed = window.confirm(
+      "Are you sure you want to book this ride?",
+    );
+
+    if (!isConfirmed) {
+      return;
     }
+
+    toast.success("Booking ride complete. Your ride is confirmed.");
   };
 
-  // reroute if user moves
+  // Auto-generate live route details as soon as both locations are selected.
   useEffect(() => {
-    if (userPosition && dropLocation) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      getRoute({ lat: userPosition[0], lon: userPosition[1] }, dropLocation);
+    if (!pickupLocation || !dropLocation) {
+      setRoute([]);
+      setDistance("");
+      setDuration("");
+      return;
     }
-  }, [userPosition]);
+
+    getRoute(pickupLocation, dropLocation);
+  }, [pickupLocation, dropLocation]);
 
   const handleCancelRide = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -110,7 +141,6 @@ export default function Page() {
     setRoute([]);
     setPickupLocation(null);
     setDropLocation(null);
-    setShowMap(false);
 
     setPickup("");
     setDrop("");
@@ -189,7 +219,7 @@ export default function Page() {
         <button
           onClick={handleBookRide}
           className="mt-5 inline-flex items-center gap-2 bg-green-500 text-white rounded-md px-4 py-2 font-semibold"
-          type="submit"
+          type="button"
         >
           Book Ride
         </button>
@@ -204,7 +234,7 @@ export default function Page() {
       </div>
 
       {/* Distance + Time */}
-      {distance && (
+      {hasBothLocations && distance && (
         <div className="text-lg font-semibold">
           Distance: {distance} km | Time: {duration} min | Cost: Rs.{" "}
           {fare.toFixed(2)}
@@ -212,41 +242,44 @@ export default function Page() {
       )}
 
       {/* Map */}
-      <div className="h-125 w-full">
-        <MapContainer
-          center={userPosition || [23.3441, 85.3096]}
-          zoom={13}
-          style={{ height: "100%", width: "100%" }}
-        >
-          <TileLayer
-            attribution="© OpenStreetMap"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-
-          {/* user */}
-          {userPosition && <Marker position={userPosition} />}
-
-          {/* pickup */}
-          {pickupLocation && (
-            <Marker
-              position={[
-                Number(pickupLocation.lat),
-                Number(pickupLocation.lon),
-              ]}
+      {hasBothLocations && (
+        <div className="h-125 w-full">
+          <MapContainer
+            center={[23.3441, 85.3096]}
+            zoom={13}
+            style={{ height: "100%", width: "100%" }}
+          >
+            <TileLayer
+              attribution="© OpenStreetMap"
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-          )}
 
-          {/* drop */}
-          {dropLocation && (
-            <Marker
-              position={[Number(dropLocation.lat), Number(dropLocation.lon)]}
-            />
-          )}
+            {/* pickup */}
+            {pickupLocation && (
+              <Marker
+                position={[
+                  Number(pickupLocation.lat),
+                  Number(pickupLocation.lon),
+                ]}
+              />
+            )}
 
-          {/* route */}
-          {route.length > 0 && <Polyline positions={route} />}
-        </MapContainer>
-      </div>
+            {/* drop */}
+            {dropLocation && (
+              <Marker
+                position={[Number(dropLocation.lat), Number(dropLocation.lon)]}
+              />
+            )}
+
+            {/* route */}
+            {route.length > 0 && <Polyline positions={route} />}
+          </MapContainer>
+        </div>
+      )}
+
+      {hasBothLocations && isRouteLoading && (
+        <p className="text-sm text-gray-600">Loading live tracking route...</p>
+      )}
     </div>
   );
 }
