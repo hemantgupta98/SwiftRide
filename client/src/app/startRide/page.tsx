@@ -29,6 +29,11 @@ export default function Page() {
   const fare = distance ? Number(distance) * 15 : 0;
   const hasBothLocations = Boolean(pickupLocation && dropLocation);
 
+  const isInRanchiJharkhand = (location: any) => {
+    const label = String(location?.display_name || "").toLowerCase();
+    return label.includes("ranchi") || label.includes("jharkhand");
+  };
+
   // search location (Ranchi only)
   const searchLocation = async (query: string) => {
     const res = await fetch(
@@ -92,26 +97,68 @@ export default function Page() {
       setRoute(coords);
       setDistance((routeData.distance / 1000).toFixed(2));
       setDuration(Math.ceil(routeData.duration / 60));
+      return true;
     } catch {
       setRoute([]);
       setDistance("");
       setDuration("");
       toast.error("Unable to fetch route. Please try different locations.");
+      return false;
     } finally {
       setIsRouteLoading(false);
     }
   };
 
+  // Resolve manually typed text to a map location when user does not click suggestions.
+  const resolveSelectedLocation = async (value: string, selected: any) => {
+    if (selected) {
+      return selected;
+    }
+
+    const query = value.trim();
+    if (query.length < 3) {
+      return null;
+    }
+
+    const results = await searchLocation(query);
+    return results?.[0] ?? null;
+  };
+
   // book ride
-  const handleBookRide = () => {
-    if (!pickupLocation || !dropLocation) {
-      toast.warning("Please select both pickup and drop locations");
+  const handleBookRide = async () => {
+    const finalPickup = await resolveSelectedLocation(pickup, pickupLocation);
+    const finalDrop = await resolveSelectedLocation(drop, dropLocation);
+
+    if (!finalPickup || !finalDrop) {
+      toast.warning("Please select valid pickup and drop locations");
       return;
     }
 
-    if (isRouteLoading || route.length === 0) {
+    if (!pickupLocation) {
+      setPickupLocation(finalPickup);
+      setPickup(finalPickup.display_name || pickup);
+    }
+
+    if (!dropLocation) {
+      setDropLocation(finalDrop);
+      setDrop(finalDrop.display_name || drop);
+    }
+
+    if (!isInRanchiJharkhand(finalPickup) && !isInRanchiJharkhand(finalDrop)) {
+      toast.error("Sorry, we are only in Ranchi now.");
+      return;
+    }
+
+    if (isRouteLoading) {
       toast.warning("Route is loading. Please wait a moment.");
       return;
+    }
+
+    if (route.length === 0) {
+      const routeCreated = await getRoute(finalPickup, finalDrop);
+      if (!routeCreated) {
+        return;
+      }
     }
 
     const isConfirmed = window.confirm(
@@ -150,6 +197,17 @@ export default function Page() {
       return;
     }
 
+    if (
+      !isInRanchiJharkhand(pickupLocation) &&
+      !isInRanchiJharkhand(dropLocation)
+    ) {
+      setRoute([]);
+      setDistance("");
+      setDuration("");
+      toast.error("Sorry, we are only in Ranchi now.");
+      return;
+    }
+
     getRoute(pickupLocation, dropLocation);
   }, [pickupLocation, dropLocation]);
 
@@ -178,6 +236,9 @@ export default function Page() {
           <h1 className="text-3xl font-bold text-orange-500">
             SwiftRide Booking
           </h1>
+          <p className=" text-sm text-gray-400">
+            Our service in only Ranchi Jharkhand
+          </p>
           {/* Pickup */}
           <label className="block mb-2 font-semibold">Pickup location</label>
           <div className="relative mb-4">
@@ -256,14 +317,6 @@ export default function Page() {
               Cancel Ride
             </button>
           </div>
-
-          {/* Distance + Time */}
-          {hasBothLocations && distance && (
-            <div className="text-lg font-semibold">
-              Distance: {distance} km | Time: {duration} min | Cost: Rs.{" "}
-              {fare.toFixed(2)}
-            </div>
-          )}
         </>
       )}
 
@@ -305,6 +358,14 @@ export default function Page() {
 
       {hasBothLocations && isRouteLoading && (
         <p className="text-sm text-gray-600">Loading live tracking route...</p>
+      )}
+
+      {/* Distance + Time */}
+      {hasBothLocations && distance && (
+        <div className="text-lg font-semibold">
+          Distance: {distance} km | Time: {duration} min | Cost: Rs.{" "}
+          {fare.toFixed(2)}
+        </div>
       )}
 
       {isRideBooked && (
