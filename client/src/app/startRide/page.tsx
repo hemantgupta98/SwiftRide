@@ -22,6 +22,8 @@ export default function Page() {
   const [distance, setDistance] = useState("");
   const [duration, setDuration] = useState<number | string>("");
 
+  const fare = distance ? Number(distance) * 15 : 0;
+
   const [userPosition, setUserPosition] = useState<LatLng | null>(null);
 
   // search location (Ranchi only)
@@ -161,12 +163,12 @@ export default function Page() {
       {/* Distance + Time */}
       {distance && (
         <div className="text-lg font-semibold">
-          Distance: {distance} km | Time: {duration} min
+          Distance: {distance} km | Time: {duration} min | Cost: Rs. {fare.toFixed(2)}
         </div>
       )}
 
       {/* Map */}
-      <div className="h-[500px] w-full">
+      <div className="h-125 w-full">
         <MapContainer
           center={userPosition || [23.3441, 85.3096]}
           zoom={13}
