@@ -126,7 +126,7 @@ export default function Page() {
 
       {/* Pickup */}
       <label className="block mb-2 font-semibold">Pickup location</label>
-      <div className="relative mb-4 ">
+      <div className="relative mb-4">
         <MapPin
           className="absolute left-3 top-1/2 -translate-y-1/2 text-green-600"
           size={18}
@@ -137,7 +137,7 @@ export default function Page() {
             handlePickupChange(e.target.value)
           }
           placeholder="Pickup location"
-          className="border p-2 w-full "
+          className="w-full pl-10"
         />
 
         {pickupSuggestions.map((item) => (
@@ -157,7 +157,7 @@ export default function Page() {
 
       {/* Drop */}
       <label className="block mb-2 font-semibold">Drop location</label>
-      <div className=" relative mb-4 mr-2">
+      <div className="relative mb-4">
         <Flag
           className="absolute left-3 top-1/2 -translate-y-1/2 text-red-600"
           size={18}
@@ -168,7 +168,7 @@ export default function Page() {
             handleDropChange(e.target.value)
           }
           placeholder="Drop location"
-          className="border p-2 w-full"
+          className="w-full pl-10"
         />
 
         {dropSuggestions.map((item) => (
@@ -251,12 +251,18 @@ export default function Page() {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const Input = forwardRef<HTMLInputElement, any>(({ icon, ...props }, ref) => (
-  <div className="flex items-center gap-3 border rounded-lg px-4 py-3">
-    <span className="text-gray-400">{icon}</span>
-    <input ref={ref} {...props} className="w-full outline-none text-sm" />
-  </div>
-));
+type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
+
+const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ className = "", ...props }, ref) => (
+    <div className="border rounded-lg px-4 py-3">
+      <input
+        ref={ref}
+        {...props}
+        className={`w-full outline-none text-sm ${className}`.trim()}
+      />
+    </div>
+  ),
+);
 
 Input.displayName = "Input";
