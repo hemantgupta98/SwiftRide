@@ -6,7 +6,7 @@ import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
 
 import "leaflet/dist/leaflet.css";
 import { MapPin, Flag } from "lucide-react";
-
+import { Toaster, toast } from "sonner";
 type LatLng = [number, number];
 
 export default function Page() {
@@ -76,7 +76,7 @@ export default function Page() {
   // book ride
   const handleBookRide = async () => {
     if (!dropLocation) {
-      alert("Please select drop location");
+      toast.warning("Please select drop location");
       return;
     }
 
@@ -123,7 +123,7 @@ export default function Page() {
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-3xl font-bold text-orange-500">SwiftRide Booking</h1>
-
+      <Toaster richColors position="top-center" />
       {/* Pickup */}
       <label className="block mb-2 font-semibold">Pickup location</label>
       <div className="relative mb-4">
