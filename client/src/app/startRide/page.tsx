@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
-import L from "leaflet";
+
 import "leaflet/dist/leaflet.css";
+import { MapPin, Flag } from "lucide-react";
 
 type LatLng = [number, number];
 
@@ -19,6 +20,8 @@ export default function Page() {
   const [dropLocation, setDropLocation] = useState<any>(null);
 
   const [route, setRoute] = useState<LatLng[]>([]);
+
+  const [showMap, setShowMap] = useState(false);
   const [distance, setDistance] = useState("");
   const [duration, setDuration] = useState<number | string>("");
 
@@ -101,17 +104,40 @@ export default function Page() {
     }
   }, [userPosition]);
 
+  const handleCancelRide = (e: React.MouseEvent) => {
+    e.preventDefault();
+
+    setRoute([]);
+    setPickupLocation(null);
+    setDropLocation(null);
+    setShowMap(false);
+
+    setPickup("");
+    setDrop("");
+    setPickupSuggestions([]);
+    setDropSuggestions([]);
+    setDistance("");
+    setDuration("");
+  };
+
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-3xl font-bold text-orange-500">SwiftRide Booking</h1>
 
       {/* Pickup */}
-      <div>
-        <input
+      <label className="block mb-2 font-semibold">Pickup location</label>
+      <div className="relative mb-4 ">
+        <MapPin
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-green-600"
+          size={18}
+        />
+        <Input
           value={pickup}
-          onChange={(e) => handlePickupChange(e.target.value)}
+          onChange={(e: { target: { value: string } }) =>
+            handlePickupChange(e.target.value)
+          }
           placeholder="Pickup location"
-          className="border p-2 w-full"
+          className="border p-2 w-full "
         />
 
         {pickupSuggestions.map((item) => (
@@ -130,10 +156,17 @@ export default function Page() {
       </div>
 
       {/* Drop */}
-      <div>
-        <input
+      <label className="block mb-2 font-semibold">Drop location</label>
+      <div className=" relative mb-4 mr-2">
+        <Flag
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-red-600"
+          size={18}
+        />
+        <Input
           value={drop}
-          onChange={(e) => handleDropChange(e.target.value)}
+          onChange={(e: { target: { value: string } }) =>
+            handleDropChange(e.target.value)
+          }
           placeholder="Drop location"
           className="border p-2 w-full"
         />
@@ -152,18 +185,29 @@ export default function Page() {
           </div>
         ))}
       </div>
+      <div className=" flex gap-5">
+        <button
+          onClick={handleBookRide}
+          className="mt-5 inline-flex items-center gap-2 bg-green-500 text-white rounded-md px-4 py-2 font-semibold"
+          type="submit"
+        >
+          Book Ride
+        </button>
 
-      <button
-        onClick={handleBookRide}
-        className="bg-green-500 text-white px-6 py-2 rounded"
-      >
-        Book Ride
-      </button>
+        <button
+          type="button"
+          onClick={handleCancelRide}
+          className="mt-5 inline-flex items-center gap-2 bg-red-500 text-white rounded-md px-4 py-2 font-semibold"
+        >
+          Cancel Ride
+        </button>
+      </div>
 
       {/* Distance + Time */}
       {distance && (
         <div className="text-lg font-semibold">
-          Distance: {distance} km | Time: {duration} min | Cost: Rs. {fare.toFixed(2)}
+          Distance: {distance} km | Time: {duration} min | Cost: Rs.{" "}
+          {fare.toFixed(2)}
         </div>
       )}
 
@@ -206,3 +250,13 @@ export default function Page() {
     </div>
   );
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Input = forwardRef<HTMLInputElement, any>(({ icon, ...props }, ref) => (
+  <div className="flex items-center gap-3 border rounded-lg px-4 py-3">
+    <span className="text-gray-400">{icon}</span>
+    <input ref={ref} {...props} className="w-full outline-none text-sm" />
+  </div>
+));
+
+Input.displayName = "Input";
