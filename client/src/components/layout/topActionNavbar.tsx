@@ -21,7 +21,7 @@ export default function TopActionNavbar() {
         <button
           type="button"
           aria-label="Open profile"
-          onClick={() => router.push("/Profile")}
+          onClick={() => router.push("/container/user")}
           className="rounded-full p-2 text-gray-700 transition hover:bg-gray-100 mr-10"
         >
           <User size={20} />

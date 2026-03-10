@@ -12,6 +12,8 @@ type LatLng = [number, number];
 export default function Page() {
   const [pickup, setPickup] = useState("");
   const [drop, setDrop] = useState("");
+  const [isCurrentLocationLoading, setIsCurrentLocationLoading] =
+    useState(false);
 
   const [pickupSuggestions, setPickupSuggestions] = useState<any[]>([]);
   const [dropSuggestions, setDropSuggestions] = useState<any[]>([]);
@@ -32,6 +34,57 @@ export default function Page() {
   const isInRanchiJharkhand = (location: any) => {
     const label = String(location?.display_name || "").toLowerCase();
     return label.includes("ranchi") || label.includes("jharkhand");
+  };
+
+  const handleUseCurrentLocation = async () => {
+    if (!navigator?.geolocation) {
+      toast.error("Geolocation is not supported in your browser.");
+      return;
+    }
+
+    setIsCurrentLocationLoading(true);
+
+    try {
+      const position = await new Promise<GeolocationPosition>(
+        (resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0,
+          });
+        },
+      );
+
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=18&addressdetails=1`,
+      );
+      const data = await res.json();
+
+      const currentLocation = {
+        ...data,
+        lat: String(lat),
+        lon: String(lon),
+      };
+
+      if (!isInRanchiJharkhand(currentLocation)) {
+        toast.error(
+          "Sorry, you are not in Ranchi. Our service is only in Ranchi.",
+        );
+        return;
+      }
+
+      setPickupLocation(currentLocation);
+      setPickup(currentLocation.display_name || "Current Location");
+      setPickupSuggestions([]);
+      toast.success("Current location selected as pickup point.");
+    } catch {
+      toast.error("Unable to fetch your current location. Please try again.");
+    } finally {
+      setIsCurrentLocationLoading(false);
+    }
   };
 
   // search location (Ranchi only)
@@ -300,6 +353,19 @@ export default function Page() {
               </div>
             ))}
           </div>
+          <div className="flex gap-5">
+            <button
+              type="button"
+              onClick={handleUseCurrentLocation}
+              disabled={isCurrentLocationLoading}
+              className="mt-2 inline-flex items-center gap-2 bg-blue-500 text-white rounded-md px-4 py-2 font-semibold disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isCurrentLocationLoading
+                ? "Getting Current Location..."
+                : "Use Current Location"}
+            </button>
+          </div>
+
           <div className="flex gap-5">
             <button
               onClick={handleBookRide}

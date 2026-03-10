@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import {
   User,
-  Star,
   HelpCircle,
   Wallet,
   Clock,
@@ -41,6 +41,7 @@ const menuItems: MenuItem[] = [
 ];
 
 export default function ProfilePage() {
+  const router = useRouter();
   return (
     <div className="min-h-screen bg-gray-100 w-full">
       <div className="w-full px-4 sm:px-6 md:px-8 py-6">
@@ -50,30 +51,19 @@ export default function ProfilePage() {
         {/* Profile Card */}
         <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
           {/* User */}
-          <div className="flex items-center justify-between">
+          <div
+            onClick={() => router.push("/container/user")}
+            className="flex items-center justify-between"
+          >
             <div className="flex items-center gap-3">
               <div className="bg-gray-100 p-3 rounded-full">
                 <User size={22} className="text-gray-600" />
               </div>
-              <Link href="/container/user" className="block">
-                <div>
-                  <p className="font-semibold text-gray-800">Hem Gupta</p>
-                  <p className="text-sm text-gray-500">9867742834</p>
-                </div>
-              </Link>
-            </div>
 
-            <ChevronRight className="text-gray-400" />
-          </div>
-
-          {/* Divider */}
-          <div className="border-t my-4"></div>
-
-          {/* Rating */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Star className="text-yellow-500 fill-yellow-400" size={20} />
-              <span className="text-gray-700 font-medium">5.00 My Rating</span>
+              <div>
+                <p className="font-semibold text-gray-800">Hem Gupta</p>
+                <p className="text-sm text-gray-500">9867742834</p>
+              </div>
             </div>
 
             <ChevronRight className="text-gray-400" />
