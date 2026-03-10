@@ -10,6 +10,7 @@ import {
   Trophy,
   X,
 } from "lucide-react";
+import { Toaster, toast } from "sonner";
 
 type Reward = {
   rides: number;
@@ -77,6 +78,7 @@ export default function RewardsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white p-8">
+      <Toaster richColors position="top-center" />
       {/* Header */}
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-orange-400 flex items-center justify-center gap-3">
@@ -132,7 +134,7 @@ export default function RewardsPage() {
       {/* POPUP MODAL */}
       {open && selectedReward && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50">
-          <div className="relative bg-gray-900 border border-gray-700 w-[380px] rounded-2xl p-6 shadow-2xl animate-fadeIn">
+          <div className="relative bg-gray-900 border border-gray-700 w-95 rounded-2xl p-6 shadow-2xl animate-fadeIn">
             {/* Close Button */}
             <button
               onClick={() => setOpen(false)}
@@ -183,7 +185,10 @@ export default function RewardsPage() {
           luck and reveal your surprise reward after completing eligible rides.
         </p>
 
-        <button className="mt-6 bg-white text-black px-6 py-2 rounded-lg font-semibold hover:scale-105 transition">
+        <button
+          onClick={() => toast.info("No Scratch Coupon")}
+          className="mt-6 bg-white text-black px-6 py-2 rounded-lg font-semibold hover:scale-105 transition"
+        >
           Try Scratch Coupon
         </button>
       </div>
