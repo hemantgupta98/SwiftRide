@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React from "react";
+import { useState } from "react";
 import {
   Gift,
   TicketPercent,
@@ -8,9 +9,18 @@ import {
   Hotel,
   Bike,
   Trophy,
+  X,
 } from "lucide-react";
 
-const rewards = [
+type Reward = {
+  rides: number;
+  title: string;
+  description: string;
+  icon: any;
+  color: string;
+};
+
+const rewards: Reward[] = [
   {
     rides: 5,
     title: "Free Ride Discount",
@@ -54,8 +64,18 @@ const rewards = [
 ];
 
 export default function RewardsPage() {
+  const [open, setOpen] = useState(false);
+  const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
+
+  // Example user rides (later connect backend)
+  const userRides = 0;
+
+  const handleOpen = (reward: Reward) => {
+    setSelectedReward(reward);
+    setOpen(true);
+  };
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white p-8">
+    <div className="min-h-screen bg-linear-to-br from-black via-gray-900 to-gray-800 text-white p-8">
       {/* Header */}
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-orange-400 flex items-center justify-center gap-3">
@@ -104,7 +124,10 @@ export default function RewardsPage() {
               </p>
 
               {/* Unlock Button */}
-              <button className="mt-6 w-full bg-orange-500 hover:bg-orange-600 transition p-2 rounded-lg font-semibold">
+              <button
+                onClick={() => handleOpen(reward)}
+                className="mt-6 w-full bg-orange-500 hover:bg-orange-600 transition p-2 rounded-lg font-semibold"
+              >
                 View Reward
               </button>
             </div>
@@ -112,8 +135,50 @@ export default function RewardsPage() {
         })}
       </div>
 
+      {open && selectedReward && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50">
+          <div className="relative bg-gray-900 border border-gray-700 w-[380px] rounded-2xl p-6 shadow-2xl animate-fadeIn">
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-white"
+            >
+              <X size={22} />
+            </button>
+
+            <h2 className="text-2xl font-bold text-orange-400 mb-4">
+              Reward Locked
+            </h2>
+
+            <p className="text-gray-300 leading-7">
+              Sorry, you have completed{" "}
+              <span className="text-red-400 font-semibold">0 rides</span>. This
+              reward is not available for you yet.
+            </p>
+
+            <p className="text-gray-400 mt-3">
+              Please complete{" "}
+              <span className="text-orange-400 font-semibold">
+                {selectedReward.rides} rides
+              </span>{" "}
+              to unlock this reward.
+            </p>
+
+            <div className="mt-6">
+              <button
+                onClick={() => setOpen(false)}
+                className="w-full bg-orange-500 hover:bg-orange-600 p-2 rounded-lg font-semibold"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Scratch Coupon Section */}
-      <div className="mt-16 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-8 shadow-xl">
+      <div className="mt-16 bg-linear-to-r from-purple-600 to-indigo-600 rounded-2xl p-8 shadow-xl">
         <h2 className="text-2xl font-bold flex items-center gap-3">
           <Sparkles />
           Scratch & Win Coupons
@@ -131,7 +196,6 @@ export default function RewardsPage() {
         </button>
       </div>
 
-      {/* Bottom Note */}
       <div className="mt-12 text-center text-gray-400 text-sm">
         Rewards and offers may vary based on city availability and promotional
         campaigns. Currently some partner rewards are available in Ranchi,
@@ -139,4 +203,32 @@ export default function RewardsPage() {
       </div>
     </div>
   );
+}
+
+{
+  /** <div className="mt-16 bg-linear-to-r from-purple-600 to-indigo-600 rounded-2xl p-8 shadow-xl">
+        <h2 className="text-2xl font-bold flex items-center gap-3">
+          <Sparkles />
+          Scratch & Win Coupons
+        </h2>
+
+        <p className="mt-3 text-gray-100 max-w-2xl">
+          Every milestone unlocks a special scratch coupon where you can win
+          ride cashback, free ride credits, travel vouchers, and partner
+          discounts. The more you ride, the more rewards you unlock. Try your
+          luck and reveal your surprise reward after completing eligible rides.
+        </p>
+
+        <button className="mt-6 bg-white text-black px-6 py-2 rounded-lg font-semibold hover:scale-105 transition">
+          Try Scratch Coupon
+        </button>
+      </div>
+
+   
+
+      <div className="mt-12 text-center text-gray-400 text-sm">
+        Rewards and offers may vary based on city availability and promotional
+        campaigns. Currently some partner rewards are available in Ranchi,
+        Jharkhand.
+      </div> */
 }
