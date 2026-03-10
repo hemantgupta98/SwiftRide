@@ -320,6 +320,18 @@ export default function Page() {
         </>
       )}
 
+      {/* Distance + Time */}
+      {hasBothLocations && distance && (
+        <div className="text-lg font-semibold">
+          Distance: {distance} km | Time: {duration} min | Cost: Rs.{" "}
+          {fare.toFixed(2)}
+        </div>
+      )}
+
+      {hasBothLocations && isRouteLoading && (
+        <p className="text-sm text-gray-600">Loading live tracking route...</p>
+      )}
+
       {/* Map */}
       {hasBothLocations && (
         <div className="h-125 w-full">
@@ -353,18 +365,6 @@ export default function Page() {
             {/* route */}
             {route.length > 0 && <Polyline positions={route} />}
           </MapContainer>
-        </div>
-      )}
-
-      {hasBothLocations && isRouteLoading && (
-        <p className="text-sm text-gray-600">Loading live tracking route...</p>
-      )}
-
-      {/* Distance + Time */}
-      {hasBothLocations && distance && (
-        <div className="text-lg font-semibold">
-          Distance: {distance} km | Time: {duration} min | Cost: Rs.{" "}
-          {fare.toFixed(2)}
         </div>
       )}
 
