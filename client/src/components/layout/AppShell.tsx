@@ -2,16 +2,18 @@
 
 import { usePathname } from "next/navigation";
 import BottomNavbar from "./bottomNavbar";
+import TopActionNavbar from "./topActionNavbar";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const hiddenRoutes = ["/", "/home", "/authCuLogin", "/authCustomer"];
-  const showBottomNavbar = !hiddenRoutes.includes(pathname);
+  const showNavbars = !hiddenRoutes.includes(pathname);
 
   return (
-    <div className={showBottomNavbar ? "min-h-dvh pb-16" : "min-h-dvh"}>
+    <div className={showNavbars ? "min-h-dvh pt-14 pb-16" : "min-h-dvh"}>
+      {showNavbars && <TopActionNavbar />}
       {children}
-      {showBottomNavbar && <BottomNavbar />}
+      {showNavbars && <BottomNavbar />}
     </div>
   );
 }
