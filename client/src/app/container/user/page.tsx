@@ -74,7 +74,7 @@ const Page = () => {
             /> */}
 
             <h2 className="text-xl font-semibold mt-3">{profile.name}</h2>
-            <p className="text-gray-500 text-sm">Premium Rider</p>
+            <p className="text-gray-500 text-sm">Premium User</p>
 
             <button className="mt-4 text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
               Change Photo

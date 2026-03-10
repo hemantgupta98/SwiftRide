@@ -13,7 +13,7 @@ const CuServicePage = () => {
         {/* Car */}
         <div
           onClick={() => router.push("/startRide")}
-          className="flex flex-col items-center gap-4  bg-blue-100 rounded-md shadow-2xl"
+          className="flex flex-col items-center gap-4   rounded-md shadow-2xl"
         >
           <div className="w-32 h-32 flex items-center mt-5 justify-center bg-gray-100 border-2 border-dashed border-red-700 rounded-xl">
             <CarTaxiFront size={60} className="text-red-700 cursor-pointer" />
@@ -26,7 +26,7 @@ const CuServicePage = () => {
         {/* Bike */}
         <div
           onClick={() => router.push("/startRide")}
-          className="flex flex-col items-center gap-4 bg-red-100 rounded-md shadow-2xl"
+          className="flex flex-col items-center gap-4  rounded-md shadow-2xl"
         >
           <div className="w-32 h-32 flex items-center mt-5 justify-center bg-gray-100  border-2 border-dashed border-blue-500 rounded-xl ">
             <Bike size={60} className="text-blue-500 cursor-pointer" />
@@ -39,7 +39,7 @@ const CuServicePage = () => {
         {/* EV Bike */}
         <div
           onClick={() => router.push("/startRide")}
-          className="flex flex-col items-center gap-4 bg-orange-100 rounded-md shadow-2xl"
+          className="flex flex-col items-center gap-4  rounded-md shadow-2xl"
         >
           <div className="w-32 h-32 flex items-center justify-center bg-gray-100 border-2 border-dashed border-blue-300 rounded-xl mt-5">
             <BikeIcon size={60} className="text-blue-300 cursor-pointer" />
