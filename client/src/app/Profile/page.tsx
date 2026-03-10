@@ -27,7 +27,7 @@ type MenuItem = {
 const menuItems: MenuItem[] = [
   { title: "Help", icon: HelpCircle, href: "/container/help" },
   { title: "Payment", icon: Wallet, href: "/container/payment" },
-  { title: "My Rides", icon: Clock, href: "/container/pass" },
+  { title: "My Rides", icon: Clock, href: "/container/rides" },
   { title: "Safety", icon: Shield, href: "/container/saftey" },
   {
     title: "Refer and Earn",
