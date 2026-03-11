@@ -2,12 +2,29 @@
 "use client";
 
 import { forwardRef, useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
+import dynamic from "next/dynamic";
 
 import "leaflet/dist/leaflet.css";
 import { MapPin, Flag, MoreVertical } from "lucide-react";
 import { Toaster, toast } from "sonner";
 type LatLng = [number, number];
+
+const MapContainer = dynamic(
+  () => import("react-leaflet").then((mod) => mod.MapContainer),
+  { ssr: false },
+);
+const TileLayer = dynamic(
+  () => import("react-leaflet").then((mod) => mod.TileLayer),
+  { ssr: false },
+);
+const Marker = dynamic(
+  () => import("react-leaflet").then((mod) => mod.Marker),
+  { ssr: false },
+);
+const Polyline = dynamic(
+  () => import("react-leaflet").then((mod) => mod.Polyline),
+  { ssr: false },
+);
 
 export default function Page() {
   const [pickup, setPickup] = useState("");
