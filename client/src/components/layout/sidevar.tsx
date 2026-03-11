@@ -41,18 +41,18 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "w-64 max-w-full shrink-0 overflow-y-auto bg-white border-r flex flex-col cursor-pointer",
+        "w-64 max-w-full shrink-0 overflow-y-auto bg-sky-900 border-r flex flex-col cursor-pointer text-gray-100",
         className,
       )}
     >
-      <div className="p-6 text-2xl font-bold text-primary">Taskora</div>
+      <div className="p-6 text-2xl font-bold text-white">SwiftRide</div>
       <nav className="flex-1 space-y-1 px-3">
         {links.map((item) => (
           <Link
             key={item.name}
             href={item.href}
             onClick={onNavigate}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-600"
           >
             <item.icon size={18} />
             {item.name}
@@ -67,19 +67,13 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
               key={e.name}
               href={e.href}
               onClick={onNavigate}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-600"
             >
               <e.icon size={18} />
               {e.name}
             </Link>
           ))}
         </nav>
-        {/**div onClick={() => router.push("/setting")}>
-          <SidebarItem icon={Settings} label="Settings" />
-        </div>
-
-        <SidebarItem icon={HelpCircle} label="Help" />
-        <SidebarItem icon={LogOut} label="Log Out" /> */}
       </div>
     </aside>
   );
