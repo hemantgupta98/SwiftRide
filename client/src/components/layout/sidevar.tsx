@@ -16,7 +16,7 @@ import {
   Workflow,
 } from "lucide-react";
 const links = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Dashboard", href: "/rider/home", icon: LayoutDashboard },
   { name: "Project Board", href: "/project", icon: KanbanSquare },
   { name: "Pendings", href: "/pending", icon: Workflow },
   { name: "Team", href: "/team", icon: Users },
