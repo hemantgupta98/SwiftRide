@@ -6,7 +6,13 @@ import TopActionNavbar from "./topActionNavbar";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const hiddenRoutes = ["/", "/home", "/authCuLogin", "/authCustomer"];
+  const hiddenRoutes = [
+    "/",
+    "/home",
+    "/authCuLogin",
+    "/authCustomer",
+    "/rider/home",
+  ];
   const showNavbars = !hiddenRoutes.includes(pathname);
 
   return (
