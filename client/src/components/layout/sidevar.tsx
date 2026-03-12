@@ -10,9 +10,6 @@ import {
   Settings,
   HelpCircle,
   LogOut,
-  CodeXml,
-  Rows4Icon,
-  BadgeQuestionMark,
   Workflow,
 } from "lucide-react";
 const links = [
@@ -21,15 +18,9 @@ const links = [
   { name: "Map", href: "/rider/map", icon: Workflow },
   { name: "Ride History", href: "/rider/history", icon: Users },
   { name: "Earning", href: "/rider/earning", icon: WorkflowIcon },
-  { name: "Code", href: "/code", icon: CodeXml },
-  { name: "Plans", href: "/plan", icon: Rows4Icon },
-  { name: "Developer", href: "/developer", icon: BadgeQuestionMark },
-];
-
-const downLink = [
-  { name: "Setting", href: "/setting", icon: Settings },
-  { name: "Help", href: "/help", icon: HelpCircle },
-  { name: "Logout", href: "/logout", icon: LogOut },
+  { name: "Setting", href: "/rider/setting", icon: Settings },
+  { name: "Help", href: "/rider/help", icon: HelpCircle },
+  { name: "Logout", href: "/rider/logout", icon: LogOut },
 ];
 
 type SidebarProps = {
@@ -59,22 +50,6 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
           </Link>
         ))}
       </nav>
-
-      <div className="border-t p-4 space-y-2">
-        <nav>
-          {downLink.map((e) => (
-            <Link
-              key={e.name}
-              href={e.href}
-              onClick={onNavigate}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-600"
-            >
-              <e.icon size={18} />
-              {e.name}
-            </Link>
-          ))}
-        </nav>
-      </div>
     </aside>
   );
 }
