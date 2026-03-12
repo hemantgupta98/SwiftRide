@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 const links = [
   { name: "Dashboard", href: "/rider/home", icon: LayoutDashboard },
-  { name: "Rider Control", href: "/rider/control", icon: KanbanSquare },
+  { name: "Riders", href: "/rider/rides", icon: KanbanSquare },
   { name: "Map", href: "/rider/map", icon: Workflow },
   { name: "Ride History", href: "/rider/history", icon: Users },
   { name: "Earning", href: "/rider/earning", icon: WorkflowIcon },
