@@ -17,10 +17,10 @@ import {
 } from "lucide-react";
 const links = [
   { name: "Dashboard", href: "/rider/home", icon: LayoutDashboard },
-  { name: "Project Board", href: "/project", icon: KanbanSquare },
-  { name: "Pendings", href: "/pending", icon: Workflow },
-  { name: "Team", href: "/team", icon: Users },
-  { name: "Backlog", href: "/backlog", icon: WorkflowIcon },
+  { name: "Rider Control", href: "/rider/control", icon: KanbanSquare },
+  { name: "Map", href: "/rider/map", icon: Workflow },
+  { name: "Ride History", href: "/rider/history", icon: Users },
+  { name: "Earning", href: "/rider/earning", icon: WorkflowIcon },
   { name: "Code", href: "/code", icon: CodeXml },
   { name: "Plans", href: "/plan", icon: Rows4Icon },
   { name: "Developer", href: "/developer", icon: BadgeQuestionMark },
