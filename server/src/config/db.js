@@ -6,7 +6,7 @@ const connectDB = async () => {
       dbName: "taskora",
     });
 
-    console.log("✅ MongoDB Atlas connected (Mongoose)");
+    console.log("✅ MongoDB  connected (Mongoose)");
   } catch (error) {
     console.error("❌ MongoDB connection failed:", error.message);
     process.exit(1);

@@ -5,7 +5,7 @@ let io;
 export const initSocket = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: "https://taskora-peach.vercel.app",
+      origin: "http://localhost:3000",
       methods: ["GET", "POST"],
     },
   });

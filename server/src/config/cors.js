@@ -5,7 +5,6 @@ const configuredOrigins = [
     .map((item) => item.trim())
     .filter(Boolean),
   "http://localhost:3000",
-  "https://taskora-peach.vercel.app",
 ].filter(Boolean);
 
 const allowedOrigins = [...new Set(configuredOrigins)];
