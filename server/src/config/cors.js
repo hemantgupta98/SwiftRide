@@ -7,7 +7,7 @@ const configuredOrigins = [
   "http://localhost:3000",
 ].filter(Boolean);
 
-const allowedOrigins = [...new Set(configuredOrigins)];
+export const allowedOrigins = [...new Set(configuredOrigins)];
 
 const corsOption = {
   origin: (origin, callback) => {
