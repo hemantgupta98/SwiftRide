@@ -1,11 +1,11 @@
 import "dotenv/config";
-import app from "./src/app.js";
-import connectDB from "./src/config/db.js";
+import app from "./app.js";
+import connectDB from "./config/db.js";
 import http from "http";
-import { initSocket } from "./src/middleware/socket.js";
+import { initSocket } from "./middleware/socket.js";
 
 //port
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 6000;
 
 const startServer = async () => {
   await connectDB();

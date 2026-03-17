@@ -1,5 +1,4 @@
 import { User, ResetPassword } from "./auth.model.js";
-import acceptModel from "../acceptInvite/accept.model.js";
 
 const escapeRegex = (value = "") => {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -32,25 +31,7 @@ export const findUserByEmailForLogin = async (email) => {
   const emailFilter = getEmailFilter(email);
   if (!emailFilter) return null;
 
-  let user = await User.findOne({ email: emailFilter });
-
-  // If not found, check in accept invite collection
-  // This allows users who accepted invites to login
-  if (!user) {
-    const acceptUser = await acceptModel.findOne({ email: emailFilter });
-    if (acceptUser) {
-      // Return the accept user data in a compatible format
-      return {
-        _id: acceptUser._id,
-        name: acceptUser.name,
-        email: acceptUser.email,
-        password: acceptUser.password, // Already hashed
-        isFromAcceptInvite: true,
-      };
-    }
-  }
-
-  return user;
+  return await User.findOne({ email: emailFilter });
 };
 
 export const createUser = async (data) => {
