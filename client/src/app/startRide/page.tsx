@@ -417,10 +417,11 @@ export default function Page() {
 
       {/* Map */}
       {hasBothLocations && (
-        <div className="h-125 w-full">
+        <div className="relative z-0 h-125 w-full">
           <MapContainer
             center={[23.3441, 85.3096]}
             zoom={13}
+            className="z-0"
             style={{ height: "100%", width: "100%" }}
           >
             <TileLayer
@@ -452,7 +453,7 @@ export default function Page() {
       )}
 
       {isRideBooked && (
-        <div className="fixed right-6 bottom-6 z-50">
+        <div className="fixed right-6 bottom-6 z-1000">
           {isRideMenuOpen && (
             <div className="mb-3 w-64 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
               <p className="text-sm font-semibold text-gray-900">
