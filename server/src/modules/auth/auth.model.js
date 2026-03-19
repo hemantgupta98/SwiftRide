@@ -37,6 +37,12 @@ const authRiderSchema = new mongoose.Schema(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    vechileNumber: { type: String, required: true },
+    vechileType: {
+      type: String,
+      required: true,
+      enum: ["car", "bike", "ev-bike"],
+    },
     username: { type: String, default: "" },
     contact: { type: String, default: "" },
     address: { type: String, default: "" },
@@ -53,7 +59,7 @@ authRiderSchema.pre("save", async function () {
   this.password = await hashpassword(this.password);
 });
 
-const Rider = mongoose.model("customerHistories", authRiderSchema);
+const Rider = mongoose.model("RiderHistories", authRiderSchema);
 
 const loginSchema = new mongoose.Schema(
   {

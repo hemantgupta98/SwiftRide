@@ -52,8 +52,43 @@ export const signup = async (req, res) => {
       },
     });
   } catch (error) {
-    console.log("Signup error:", error);
-    res.status(500).json({ message: "Signup failed" });
+    console.log("User Signup error:", error);
+    res.status(500).json({ message: "User Signup failed" });
+  }
+};
+
+export const Ridersignup = async (req, res) => {
+  const { name, email, password, vechileNumber, vechileType } = req.body;
+
+  try {
+    const userExist = await findUserByEmail(email);
+
+    if (userExist) {
+      return res.status(409).json({ message: "Rider already exists" });
+    }
+
+    const user = await createUser({
+      name,
+      email,
+      password,
+      vechileNumber,
+      vechileType,
+    });
+    const issueSignupToken = process.env.ISSUE_SIGNUP_TOKEN !== "false";
+    const token = issueAuthToken(res, user._id);
+
+    res.status(201).json({
+      success: true,
+      message: "Rider created successfully",
+      ...(issueSignupToken ? { token } : {}),
+      user: {
+        id: user._id,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.log("Rider Signup error:", error);
+    res.status(500).json({ message: "Rider Signup failed" });
   }
 };
 
