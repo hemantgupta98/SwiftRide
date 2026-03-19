@@ -19,6 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
+import { Toaster, toast } from "sonner";
+import axios from "axios";
 
 type InputData = {
   name: string;
@@ -53,8 +55,44 @@ export default function CustomerSignupPage() {
   } = riderForm;
 
   const onSubmitCustomer: SubmitHandler<InputData> = async (data) => {
-    alert("Customer form submitted");
     console.log("Customer Data 👉", data);
+    try {
+      const url = "http://localhost:6000/api/auth/signup";
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+
+      let result;
+      const contentType = res.headers.get("content-type");
+
+      if (contentType?.includes("application/json")) {
+        result = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(text || "Invalid server response");
+      }
+
+      if (!res.ok) {
+        toast.error(result.message || "Authentication failed");
+        return resetCustomer();
+      }
+      console.log("LOGIN RESPONSE 👉", result);
+
+      if (mode === "customer" && result?.token) {
+        localStorage.setItem("token", result.token);
+      }
+
+      toast.success("signup successfully");
+
+      router.push("/profile");
+    } catch (error) {
+      console.error("AUTH ERROR 👉", error);
+      toast.error("Server error. Please try again.");
+    }
     resetCustomer();
   };
 
@@ -68,6 +106,7 @@ export default function CustomerSignupPage() {
   return (
     <main className="min-h-screen bg-linear-to-br from-[#0B1220] via-[#0E1A2F] to-[#08101E] flex flex-col items-center justify-between text-white relative">
       <div className="pt-2 flex flex-col items-center gap-6">
+        <Toaster position="top-center" richColors />
         {/* Logo */}
         <div className="flex items-center gap-2 text-xl font-semibold">
           <div className="">
