@@ -4,7 +4,9 @@ import { LoginHistory, User, googleDB } from "./auth.model.js";
 import {
   createUser,
   findUserByEmail,
+  findRiderByEmail,
   createResetPasswordRecord,
+  createRider,
 } from "./auth.service.js";
 import sendOtp from "./auth.gmail.js";
 import { isMailConfigured } from "../../utils/mailer.js";
@@ -61,13 +63,13 @@ export const ridersignup = async (req, res) => {
   const { name, email, password, vechileNumber, vechileType } = req.body;
 
   try {
-    const userExist = await findUserByEmail(email);
+    const userExist = await findRiderByEmail(email);
 
     if (userExist) {
       return res.status(409).json({ message: "Rider already exists" });
     }
 
-    const user = await createUser({
+    const user = await createRider({
       name,
       email,
       password,

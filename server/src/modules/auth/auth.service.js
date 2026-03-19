@@ -1,4 +1,4 @@
-import { User, ResetPassword } from "./auth.model.js";
+import { User, ResetPassword, Rider } from "./auth.model.js";
 
 const escapeRegex = (value = "") => {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -27,6 +27,15 @@ export const findUserByEmail = async (email) => {
   return user;
 };
 
+export const findRiderByEmail = async (email) => {
+  const emailFilter = getEmailFilter(email);
+  if (!emailFilter) return null;
+
+  let user = await Rider.findOne({ email: emailFilter });
+
+  return user;
+};
+
 export const findUserByEmailForLogin = async (email) => {
   const emailFilter = getEmailFilter(email);
   if (!emailFilter) return null;
@@ -45,6 +54,16 @@ export const createUser = async (data) => {
   });
 };
 
+export const createRider = async (data) => {
+  const normalizedEmail = String(data?.email || "")
+    .trim()
+    .toLowerCase();
+
+  return await Rider.create({
+    ...data,
+    email: normalizedEmail,
+  });
+};
 export const createResetPasswordRecord = async (user) => {
   if (!user || !user._id || !user.email || !user.password) return null;
 
