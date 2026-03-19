@@ -21,7 +21,6 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { Toaster, toast } from "sonner";
-import axios from "axios";
 
 type InputData = {
   name: string;
@@ -32,6 +31,7 @@ type InputData = {
 type RiderData = {
   name: string;
   email: string;
+  password: string;
   vechileType: string;
   vechileNumber: string;
 };
@@ -56,7 +56,6 @@ export default function CustomerSignupPage() {
   } = riderForm;
 
   const onSubmitCustomer: SubmitHandler<InputData> = async (data) => {
-    console.log("Customer Data 👉", data);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
       const res = await fetch(`${apiUrl}/api/auth/signup`, {
@@ -97,8 +96,42 @@ export default function CustomerSignupPage() {
   };
 
   const onSubmitRider: SubmitHandler<RiderData> = async (data) => {
-    alert("Rider form submitted");
-    console.log("Rider Data 👉", data);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const res = await fetch(`${apiUrl}/api/auth/ridersignup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      let result;
+      const contentType = res.headers.get("content-type");
+
+      if (contentType?.includes("application/json")) {
+        result = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(text || "Invalid server response");
+      }
+
+      if (!res.ok) {
+        toast.error(result.message || "Authentication failed");
+        return resetCustomer();
+      }
+
+      if (mode === "rider" && result?.token) {
+        localStorage.setItem("token", result.token);
+      }
+
+      toast.success("Rider signup successfully");
+
+      router.push("/rider/home");
+    } catch (error: any) {
+      console.error("AUTH ERROR 👉", error);
+      toast.error(error.message || "Server error");
+    }
     resetRider();
   };
 
@@ -199,9 +232,9 @@ export default function CustomerSignupPage() {
                     required: "Enter your strong password",
                   })}
                 />
-                {customerErrors.email && (
+                {customerErrors.password && (
                   <p className="text-red-500 text-sm">
-                    {customerErrors.email.message}
+                    {customerErrors.password.message}
                   </p>
                 )}
 
@@ -255,6 +288,21 @@ export default function CustomerSignupPage() {
                 {riderErrors.email && (
                   <p className="text-red-500 text-sm">
                     {riderErrors.email.message}
+                  </p>
+                )}
+
+                <Input
+                  label="Password"
+                  placeholder="••••••••"
+                  type="password"
+                  icon={<Lock size={18} />}
+                  {...registerRider("password", {
+                    required: "Enter your strong password",
+                  })}
+                />
+                {riderErrors.password && (
+                  <p className="text-red-500 text-sm">
+                    {riderErrors.password.message}
                   </p>
                 )}
 
