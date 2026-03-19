@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { hashpassword } from "./auth.hashed.js";
 
-const authSchema = new mongoose.Schema(
+const authUserSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -20,13 +20,40 @@ const authSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-authSchema.pre("save", async function () {
+authUserSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
 
   this.password = await hashpassword(this.password);
 });
 
-const User = mongoose.model("SignupHistory", authSchema);
+const User = mongoose.model("customerHistories", authUserSchema);
+
+const authRiderSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    username: { type: String, default: "" },
+    contact: { type: String, default: "" },
+    address: { type: String, default: "" },
+    bio: { type: String, default: "" },
+    otpCode: { type: String },
+    otpExpiresAt: { type: Date },
+  },
+  { timestamps: true },
+);
+
+authRiderSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
+
+  this.password = await hashpassword(this.password);
+});
+
+const Rider = mongoose.model("customerHistories", authRiderSchema);
 
 const loginSchema = new mongoose.Schema(
   {
@@ -81,4 +108,4 @@ const ResetPassword = mongoose.model(
   "resetpassword",
 );
 
-export { User, LoginHistory, ResetPassword, googleDB };
+export { User, LoginHistory, ResetPassword, googleDB, Rider };
