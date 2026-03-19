@@ -3,7 +3,7 @@ import axios from "axios"
 const apiOrigin =
   
   process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:6000";
+  "http://localhost:5000";
 
 const normalizedApiBase = `${apiOrigin.replace(/\/$/, "")}/api`;
 

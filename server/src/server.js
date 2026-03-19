@@ -5,7 +5,7 @@ import http from "http";
 import { initSocket } from "./middleware/socket.js";
 
 //port
-const port = process.env.PORT || 6000;
+const port = process.env.PORT || 5000;
 
 const startServer = async () => {
   await connectDB();

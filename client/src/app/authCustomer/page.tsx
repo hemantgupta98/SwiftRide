@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -57,12 +58,12 @@ export default function CustomerSignupPage() {
   const onSubmitCustomer: SubmitHandler<InputData> = async (data) => {
     console.log("Customer Data 👉", data);
     try {
-      const url = "http://localhost:6000/api/auth/signup";
-
-      const res = await fetch(url, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const res = await fetch(`${apiUrl}/api/auth/signup`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(data),
       });
 
@@ -80,7 +81,6 @@ export default function CustomerSignupPage() {
         toast.error(result.message || "Authentication failed");
         return resetCustomer();
       }
-      console.log("LOGIN RESPONSE 👉", result);
 
       if (mode === "customer" && result?.token) {
         localStorage.setItem("token", result.token);
@@ -88,10 +88,10 @@ export default function CustomerSignupPage() {
 
       toast.success("signup successfully");
 
-      router.push("/profile");
-    } catch (error) {
+      router.push("/CuRider");
+    } catch (error: any) {
       console.error("AUTH ERROR 👉", error);
-      toast.error("Server error. Please try again.");
+      toast.error(error.message || "Server error");
     }
     resetCustomer();
   };
