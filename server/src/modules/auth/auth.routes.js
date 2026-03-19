@@ -11,6 +11,7 @@ import {
   getUserByGmail,
   getProfile,
   updateProfile,
+  ridersignup,
 } from "./auth.controllers.js";
 import { sendMailSafe } from "../../utils/mailer.js";
 import { verifyToken } from "./auth.middleware.js";
@@ -23,6 +24,7 @@ const isGoogleConfigured = Boolean(
 
 // Email / password auth
 router.post("/signup", signup);
+router.post("/ridersignup", ridersignup);
 router.get("/me", verifyToken, getProfile);
 router.patch("/me", verifyToken, updateProfile);
 router.post("/login", login);

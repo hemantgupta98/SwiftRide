@@ -57,7 +57,7 @@ export const signup = async (req, res) => {
   }
 };
 
-export const Ridersignup = async (req, res) => {
+export const ridersignup = async (req, res) => {
   const { name, email, password, vechileNumber, vechileType } = req.body;
 
   try {
