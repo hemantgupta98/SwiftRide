@@ -32,7 +32,7 @@ const authRiderSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Rider",
     },
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
@@ -81,7 +81,7 @@ const resetPasswordSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "SignupHistory",
+      ref: "User",
       required: true,
     },
     email: { type: String, required: true },

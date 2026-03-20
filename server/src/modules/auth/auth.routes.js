@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import passport from "passport";
 import {
   signup,
-  login,
+  Userlogin,
   registerUser,
   verifyotp,
   resetpassword,
@@ -27,7 +27,7 @@ router.post("/signup", signup);
 router.post("/ridersignup", ridersignup);
 router.get("/me", verifyToken, getProfile);
 router.patch("/me", verifyToken, updateProfile);
-router.post("/login", login);
+router.post("/login", Userlogin);
 
 // OTP
 router.post("/otp", registerUser);

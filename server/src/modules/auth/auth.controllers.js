@@ -232,7 +232,7 @@ export const updateProfile = async (req, res) => {
   }
 };
 
-export const login = async (req, res) => {
+export const Userlogin = async (req, res) => {
   const { email, password } = req.body;
 
   try {
