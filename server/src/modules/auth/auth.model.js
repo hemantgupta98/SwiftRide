@@ -76,7 +76,24 @@ const loginSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-const LoginHistory = mongoose.model("LoginHistory", loginSchema);
+const LoginHistory = mongoose.model("UserLoginHistory", loginSchema);
+
+const RiderloginSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Rider",
+    },
+    email: String,
+    loginAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { timestamps: true },
+);
+
+const RiderLoginHistory = mongoose.model("RiderLoginHistory", RiderloginSchema);
 const resetPasswordSchema = new mongoose.Schema(
   {
     userId: {
@@ -114,4 +131,11 @@ const ResetPassword = mongoose.model(
   "resetpassword",
 );
 
-export { User, LoginHistory, ResetPassword, googleDB, Rider };
+export {
+  User,
+  LoginHistory,
+  ResetPassword,
+  googleDB,
+  Rider,
+  RiderLoginHistory,
+};

@@ -4,6 +4,7 @@ import passport from "passport";
 import {
   signup,
   Userlogin,
+  Riderlogin,
   registerUser,
   verifyotp,
   resetpassword,
@@ -28,6 +29,7 @@ router.post("/ridersignup", ridersignup);
 router.get("/me", verifyToken, getProfile);
 router.patch("/me", verifyToken, updateProfile);
 router.post("/login", Userlogin);
+router.post("/riderlogin", Riderlogin);
 
 // OTP
 router.post("/otp", registerUser);

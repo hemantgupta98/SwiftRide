@@ -1,16 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useForm, SubmitHandler, Controller } from "react-hook-form";
-import { Mail, Lock, ChevronLeft, BikeIcon, Bike, Car } from "lucide-react";
+import { useForm, SubmitHandler } from "react-hook-form";
+import { Mail, Lock, ChevronLeft } from "lucide-react";
 import { forwardRef, useState } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/ui/select";
+import { Toaster, toast } from "sonner";
 
 type InputData = {
   email: string;
@@ -18,10 +13,8 @@ type InputData = {
 };
 
 type RiderData = {
-  name: string;
   email: string;
-  vechileType: string;
-  vechileNumber: string;
+  password: string;
 };
 
 export default function CustomerSignupPage() {
@@ -40,18 +33,85 @@ export default function CustomerSignupPage() {
     handleSubmit: handleRiderSubmit,
     formState: { errors: riderErrors },
     reset: resetRider,
-    control: riderControl,
   } = riderForm;
 
   const onSubmitCustomer: SubmitHandler<InputData> = async (data) => {
-    alert("Customer form submitted");
-    console.log("Customer Data 👉", data);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const res = await fetch(`${apiUrl}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      let result;
+      const contentType = res.headers.get("content-type");
+
+      if (contentType?.includes("application/json")) {
+        result = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(text || "Invalid server response");
+      }
+
+      if (!res.ok) {
+        toast.error(result.message || "Authentication failed");
+        return resetCustomer();
+      }
+
+      if (mode === "customer" && result?.token) {
+        localStorage.setItem("token", result.token);
+      }
+
+      toast.success("Login successfully");
+
+      router.push("/CuRider");
+    } catch (error: any) {
+      console.error("AUTH ERROR 👉", error);
+      toast.error(error.message || "Server error");
+    }
     resetCustomer();
   };
 
   const onSubmitRider: SubmitHandler<RiderData> = async (data) => {
-    alert("Rider form submitted");
-    console.log("Rider Data 👉", data);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const res = await fetch(`${apiUrl}/api/auth/riderlogin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      let result;
+      const contentType = res.headers.get("content-type");
+
+      if (contentType?.includes("application/json")) {
+        result = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(text || "Invalid server response");
+      }
+
+      if (!res.ok) {
+        toast.error(result.message || "Authentication failed");
+        return resetCustomer();
+      }
+
+      if (mode === "rider" && result?.token) {
+        localStorage.setItem("token", result.token);
+      }
+
+      toast.success("Login successfully");
+
+      router.push("/rider/home");
+    } catch (error: any) {
+      console.error("AUTH ERROR 👉", error);
+      toast.error(error.message || "Server error");
+    }
     resetRider();
   };
 
@@ -59,6 +119,7 @@ export default function CustomerSignupPage() {
   return (
     <main className="min-h-screen bg-linear-to-br from-[#0B1220] via-[#0E1A2F] to-[#08101E] flex flex-col items-center justify-between text-white relative">
       <div className="pt-2 flex flex-col items-center gap-6">
+        <Toaster position="top-center" richColors />
         {/* Logo */}
         <div className="flex items-center gap-2 text-xl font-semibold">
           <div className="">
@@ -181,76 +242,20 @@ export default function CustomerSignupPage() {
                   </p>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Vehicle Type */}
-                  <div className="space-y-1">
-                    <label className="text-md font-medium text-gray-700">
-                      Vehicle type
-                    </label>
-
-                    <Controller
-                      name="vechileType"
-                      control={riderControl}
-                      rules={{ required: "Select vehicle type" }}
-                      render={({ field }) => (
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select vehicle type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="car">
-                              <div className="flex items-center gap-2">
-                                <Car size={14} className="text-red-700" />
-                                <span>Car</span>
-                              </div>
-                            </SelectItem>
-
-                            <SelectItem value="bike">
-                              <div className="flex items-center gap-2">
-                                <Bike size={14} className="text-blue-500" />
-                                <span>Bike</span>
-                              </div>
-                            </SelectItem>
-
-                            <SelectItem value="ev-bike">
-                              <div className="flex items-center gap-2">
-                                <BikeIcon size={14} className="text-blue-300" />
-                                <span>EV-Bike</span>
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-
-                    {riderErrors.vechileType && (
-                      <p className="text-red-500 text-sm">
-                        {riderErrors.vechileType.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Vehicle Number */}
-                  <div className="">
-                    <Input
-                      label="Vehicle Number"
-                      placeholder="DL01AB1234"
-                      icon={<Lock size={18} />}
-                      {...registerRider("vechileNumber", {
-                        required: "Enter vehicle number",
-                      })}
-                    />
-
-                    {riderErrors.vechileNumber && (
-                      <p className="text-red-500 text-sm">
-                        {riderErrors.vechileNumber.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                <Input
+                  label="Password"
+                  placeholder="••••••••"
+                  type="password"
+                  icon={<Lock size={18} />}
+                  {...registerRider("password", {
+                    required: "Enter your strong password",
+                  })}
+                />
+                {riderErrors.password && (
+                  <p className="text-red-500 text-sm">
+                    {riderErrors.password.message}
+                  </p>
+                )}
 
                 <button
                   type="submit"

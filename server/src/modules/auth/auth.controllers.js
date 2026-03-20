@@ -1,6 +1,11 @@
 import jwt from "jsonwebtoken";
 import { comparePassword, hashpassword } from "./auth.hashed.js";
-import { LoginHistory, User, googleDB } from "./auth.model.js";
+import {
+  LoginHistory,
+  User,
+  googleDB,
+  RiderLoginHistory,
+} from "./auth.model.js";
 import {
   createUser,
   findUserByEmail,
@@ -249,6 +254,43 @@ export const Userlogin = async (req, res) => {
     }
 
     await LoginHistory.create({
+      userId: user._id,
+      email: user.email,
+    });
+
+    const token = issueAuthToken(res, user._id);
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.log("Login error:", error.message);
+    res.status(500).json({ message: "Login failed" });
+  }
+};
+
+export const Riderlogin = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await findRiderByEmail(email);
+
+    if (!user) {
+      return res.status(404).json({ message: "Rider not found" });
+    }
+
+    const isMatch = await comparePassword(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
+
+    await RiderLoginHistory.create({
       userId: user._id,
       email: user.email,
     });
