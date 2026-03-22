@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
+import { api } from "@/lib/api";
 
 import {
   User,
@@ -13,6 +15,72 @@ import {
 } from "lucide-react";
 
 export default function DriverProfile() {
+  const [riderProfile, setRiderProfile] = useState({
+    name: "",
+    email: "",
+    contact: "",
+    address: "",
+    vechileType: "",
+    vechileNumber: "",
+  });
+  const [profileError, setProfileError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchRiderProfile = async () => {
+      try {
+        const response = await api.get("/auth/me");
+        const data = response?.data?.data;
+
+        if (!mounted) {
+          return;
+        }
+
+        if (!data || data.role !== "rider") {
+          setProfileError("Rider profile only. Please login as rider.");
+          setRiderProfile({
+            name: "",
+            email: "",
+            contact: "",
+            address: "",
+            vechileType: "",
+            vechileNumber: "",
+          });
+          return;
+        }
+
+        setProfileError("");
+        setRiderProfile({
+          name: String(data.name || ""),
+          email: String(data.email || ""),
+          contact: String(data.contact || ""),
+          address: String(data.address || ""),
+          vechileType: String(data.vechileType || ""),
+          vechileNumber: String(data.vechileNumber || ""),
+        });
+      } catch {
+        if (!mounted) {
+          return;
+        }
+        setProfileError("Unable to load rider profile details.");
+      }
+    };
+
+    fetchRiderProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const vehicleTypeLabel = riderProfile.vechileType
+    ? riderProfile.vechileType
+        .split("-")
+        .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+        .join(" ")
+    : "Not provided";
+
   return (
     <div className="min-h-screen bg-[#0b2e4d] text-white p-8">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -34,7 +102,7 @@ export default function DriverProfile() {
 
             <div className="flex-1">
               <h2 className="text-2xl font-semibold flex items-center gap-2">
-                Alex Rivera
+                {riderProfile.name || "Rider"}
                 <span className="text-xs bg-green-600 text-white px-2 py-1 rounded-full">
                   Verified Driver
                 </span>
@@ -71,22 +139,22 @@ export default function DriverProfile() {
                 <Input
                   label="Full Name"
                   icon={<User size={16} />}
-                  value="Alex J Rivera"
+                  value={riderProfile.name || "Not provided"}
                 />
                 <Input
                   label="Email Address"
                   icon={<Mail size={16} />}
-                  value="alex@swiftride.com"
+                  value={riderProfile.email || "Not provided"}
                 />
                 <Input
                   label="Phone Number"
                   icon={<Phone size={16} />}
-                  value="+1 (555) 123-4567"
+                  value={riderProfile.contact || "Not provided"}
                 />
                 <Input
                   label="Operating City"
                   icon={<MapPin size={16} />}
-                  value="San Francisco, CA"
+                  value={riderProfile.address || "Not provided"}
                 />
               </div>
             </div>
@@ -153,20 +221,19 @@ export default function DriverProfile() {
               </div>
 
               <div className="p-4 space-y-2">
-                <h4 className="font-semibold">Tesla Model 3</h4>
-                <p className="text-sm text-gray-600">
-                  Standard Range Plus (2022)
-                </p>
+                <h4 className="font-semibold">{vehicleTypeLabel}</h4>
+                <p className="text-sm text-gray-600">Rider vehicle profile</p>
 
                 <div className="text-sm">
                   <p>
-                    License Plate: <b>SWFT-772</b>
+                    License Plate:{" "}
+                    <b>{riderProfile.vechileNumber || "Not provided"}</b>
                   </p>
                   <p>
-                    Color: <b>Space Silver</b>
+                    Color: <b>Not provided</b>
                   </p>
                   <p>
-                    Vehicle Class: <b>Swift Comfort</b>
+                    Vehicle Class: <b>{vehicleTypeLabel}</b>
                   </p>
                 </div>
 
@@ -216,6 +283,9 @@ export default function DriverProfile() {
             </div>
           </div>
         </div>
+        {profileError && (
+          <div className="text-sm text-red-300">{profileError}</div>
+        )}
       </div>
     </div>
   );
@@ -227,7 +297,7 @@ function Input({
   value,
 }: {
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   value: string;
 }) {
   return (
@@ -237,7 +307,8 @@ function Input({
       <div className="flex items-center border rounded-lg px-3 py-2 bg-gray-100 gap-2">
         {icon}
         <input
-          defaultValue={value}
+          value={value}
+          readOnly
           className="bg-transparent outline-none w-full text-sm"
         />
       </div>

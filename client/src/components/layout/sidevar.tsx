@@ -4,21 +4,19 @@ import { cn } from "@/lib/utils";
 
 import {
   LayoutDashboard,
-  KanbanSquare,
-  WorkflowIcon,
-  Users,
+  BikeIcon,
+  History,
   Settings,
   HelpCircle,
   LogOut,
-  Workflow,
+  Currency,
   User2Icon,
 } from "lucide-react";
 const links = [
   { name: "Dashboard", href: "/rider/home", icon: LayoutDashboard },
-  { name: "Rides", href: "/rider/rides", icon: KanbanSquare },
-  { name: "Map", href: "/rider/map", icon: Workflow },
-  { name: "Ride History", href: "/rider/history", icon: Users },
-  { name: "Earning", href: "/rider/earning", icon: WorkflowIcon },
+  { name: "Rides", href: "/rider/rides", icon: BikeIcon },
+  { name: "Ride History", href: "/rider/history", icon: History },
+  { name: "Earning", href: "/rider/earning", icon: Currency },
   { name: "Profile", href: "/rider/profile", icon: User2Icon },
   { name: "Setting", href: "/rider/setting", icon: Settings },
   { name: "Help", href: "/rider/help", icon: HelpCircle },

@@ -5,6 +5,7 @@ import {
   User,
   googleDB,
   RiderLoginHistory,
+  Rider,
 } from "./auth.model.js";
 import {
   createUser,
@@ -142,6 +143,37 @@ export const getUserByGmail = async (req, res) => {
 export const getProfile = async (req, res) => {
   try {
     const userId = req.user?.id;
+    const role = req.user?.role;
+
+    if (role === "rider") {
+      const rider = await Rider.findById(userId).select(
+        "_id name email username contact address bio vechileType vechileNumber",
+      );
+
+      if (!rider) {
+        return res.status(404).json({
+          success: false,
+          message: "Rider not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          userId: rider._id,
+          role: "rider",
+          name: rider.name || "",
+          email: rider.email || "",
+          username: rider.username || "",
+          contact: rider.contact || "",
+          address: rider.address || "",
+          bio: rider.bio || "",
+          vechileType: rider.vechileType || "",
+          vechileNumber: rider.vechileNumber || "",
+        },
+      });
+    }
+
     let user = await User.findById(userId).select(
       "_id name email username contact address bio",
     );
@@ -163,6 +195,7 @@ export const getProfile = async (req, res) => {
       success: true,
       data: {
         userId: user._id,
+        role: "customer",
         name: user.name || "",
         email: user.email || "",
         username: user.username || "",
@@ -183,6 +216,7 @@ export const getProfile = async (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.user?.id;
+    const role = req.user?.role;
     const editableFields = ["username", "contact", "address", "bio"];
     const updates = {};
 
@@ -196,6 +230,37 @@ export const updateProfile = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "No profile fields provided for update",
+      });
+    }
+
+    if (role === "rider") {
+      const rider = await Rider.findById(userId);
+
+      if (!rider) {
+        return res.status(404).json({
+          success: false,
+          message: "Rider not found",
+        });
+      }
+
+      Object.assign(rider, updates);
+      await rider.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Profile updated successfully",
+        data: {
+          userId: rider._id,
+          role: "rider",
+          name: rider.name || "",
+          email: rider.email || "",
+          username: rider.username || "",
+          contact: rider.contact || "",
+          address: rider.address || "",
+          bio: rider.bio || "",
+          vechileType: rider.vechileType || "",
+          vechileNumber: rider.vechileNumber || "",
+        },
       });
     }
 

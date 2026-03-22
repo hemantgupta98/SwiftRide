@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { User, googleDB } from "./auth.model.js";
+import { User, Rider, googleDB } from "./auth.model.js";
 
 export const verifyToken = async (req, res, next) => {
   try {
@@ -32,8 +32,18 @@ export const verifyToken = async (req, res, next) => {
 
     // Check both user collections
     let user = await User.findById(decoded.id);
+    let role = "customer";
     if (!user) {
       user = await googleDB.findById(decoded.id);
+      if (user) {
+        role = "customer";
+      }
+    }
+    if (!user) {
+      user = await Rider.findById(decoded.id);
+      if (user) {
+        role = "rider";
+      }
     }
 
     if (!user) {
@@ -44,6 +54,7 @@ export const verifyToken = async (req, res, next) => {
       id: user._id,
       email: user.email,
       name: user.name,
+      role,
     };
     next();
   } catch (err) {
