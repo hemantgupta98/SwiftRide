@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import { allowedOrigins } from "../config/cors.js";
+import { registerRideSocketHandlers } from "../sockets/ride.socket.js";
 
 let io;
 
@@ -22,6 +23,8 @@ export const initSocket = (httpServer) => {
     socket.on("disconnect", () => {
       console.log("Socket disconnected:", socket.id);
     });
+
+    registerRideSocketHandlers(io, socket);
   });
 
   return io;

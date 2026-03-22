@@ -1,0 +1,293 @@
+import {
+  RIDE_REQUEST_TIMEOUT_MS,
+  addRideRequestedRiders,
+  acceptRideByRider,
+  declineRideByRider,
+  findNearbyOnlineRiders,
+  markRideTimedOut,
+  setRiderOnlineState,
+  updateRiderLiveLocation,
+} from "../modules/ride/ride.service.js";
+
+const riderSocketMap = new Map();
+const userSocketMap = new Map();
+const socketToRiderMap = new Map();
+const socketToUserMap = new Map();
+const rideTimeoutMap = new Map();
+
+const emitToUser = (io, userId, eventName, payload) => {
+  if (!userId) return;
+
+  const userSocketId = userSocketMap.get(String(userId));
+  if (userSocketId) {
+    io.to(userSocketId).emit(eventName, payload);
+  }
+
+  io.to(String(userId)).emit(eventName, payload);
+};
+
+const clearRideTimeout = (rideId) => {
+  const existingTimeout = rideTimeoutMap.get(String(rideId));
+  if (existingTimeout) {
+    clearTimeout(existingTimeout);
+    rideTimeoutMap.delete(String(rideId));
+  }
+};
+
+const emitRideNoRider = (io, ride) => {
+  emitToUser(io, ride.userId, "rideNoRider", {
+    rideId: String(ride._id),
+    message: "No rider accepted your request",
+  });
+};
+
+const startRideRequestTimeout = (io, ride) => {
+  clearRideTimeout(ride._id);
+
+  const timeoutId = setTimeout(async () => {
+    const timedOutRide = await markRideTimedOut(ride._id);
+    if (!timedOutRide) return;
+
+    emitRideNoRider(io, timedOutRide);
+  }, RIDE_REQUEST_TIMEOUT_MS);
+
+  rideTimeoutMap.set(String(ride._id), timeoutId);
+};
+
+const dispatchRideRequestToNearbyRiders = async (ride) => {
+  const { getIO } = await import("../middleware/socket.js");
+  const io = getIO();
+
+  const nearbyRiders = await findNearbyOnlineRiders({
+    pickupCoordinates: ride.pickup.coordinates,
+    radiusKm: 2,
+  });
+
+  if (!nearbyRiders.length) {
+    await markRideTimedOut(ride._id);
+    emitRideNoRider(io, ride);
+    return;
+  }
+
+  const riderIds = nearbyRiders.map((rider) => rider._id);
+  await addRideRequestedRiders(ride._id, riderIds);
+
+  const requestPayload = {
+    rideId: String(ride._id),
+    pickup: ride.pickup,
+    drop: ride.drop,
+    distanceKm: ride.distanceKm,
+    fareAmount: ride.fareAmount,
+    estimatedMinutes: ride.estimatedMinutes,
+    timeoutSeconds: Math.floor(RIDE_REQUEST_TIMEOUT_MS / 1000),
+    message: "New ride request nearby",
+  };
+
+  for (const rider of nearbyRiders) {
+    const riderSocketId = riderSocketMap.get(String(rider._id));
+
+    if (riderSocketId) {
+      io.to(riderSocketId).emit("newRideRequest", requestPayload);
+    }
+
+    io.to(String(rider._id)).emit("newRideRequest", requestPayload);
+  }
+
+  startRideRequestTimeout(io, ride);
+};
+
+const handleRiderAcceptRide = async (io, socket, payload) => {
+  try {
+    const { rideId, riderId } = payload || {};
+
+    const acceptedRide = await acceptRideByRider({
+      rideId,
+      riderId,
+    });
+
+    if (!acceptedRide) {
+      socket.emit("rideAcceptFailed", {
+        rideId,
+        message: "Ride already accepted or unavailable",
+      });
+      return;
+    }
+
+    clearRideTimeout(acceptedRide._id);
+
+    socket.emit("rideAcceptSuccess", {
+      rideId: String(acceptedRide._id),
+      status: acceptedRide.status,
+    });
+
+    emitToUser(io, acceptedRide.userId, "rideAccepted", {
+      rideId: String(acceptedRide._id),
+      riderId: String(acceptedRide.riderId),
+      pickup: acceptedRide.pickup,
+      drop: acceptedRide.drop,
+      distanceKm: acceptedRide.distanceKm,
+      fareAmount: acceptedRide.fareAmount,
+      estimatedMinutes: acceptedRide.estimatedMinutes,
+      message: "Your ride has been accepted",
+    });
+
+    for (const requestedRiderId of acceptedRide.requestedRiderIds || []) {
+      if (String(requestedRiderId) === String(acceptedRide.riderId)) {
+        continue;
+      }
+
+      io.to(String(requestedRiderId)).emit("rideTaken", {
+        rideId: String(acceptedRide._id),
+        acceptedBy: String(acceptedRide.riderId),
+      });
+    }
+  } catch (error) {
+    socket.emit("rideAcceptFailed", {
+      message: error.message || "Failed to accept ride",
+    });
+  }
+};
+
+const handleRiderDeclineRide = async (io, socket, payload) => {
+  try {
+    const { rideId, riderId } = payload || {};
+
+    const declinedRide = await declineRideByRider({ rideId, riderId });
+    if (!declinedRide) {
+      return;
+    }
+
+    socket.emit("rideDeclined", {
+      rideId: String(declinedRide._id),
+      status: declinedRide.status,
+    });
+
+    const uniqueRequested = new Set(
+      (declinedRide.requestedRiderIds || []).map((id) => String(id)),
+    );
+    const uniqueDeclined = new Set(
+      (declinedRide.declinedRiderIds || []).map((id) => String(id)),
+    );
+
+    if (
+      declinedRide.status === "searching" &&
+      uniqueRequested.size > 0 &&
+      uniqueRequested.size === uniqueDeclined.size
+    ) {
+      const timedOutRide = await markRideTimedOut(declinedRide._id);
+      if (timedOutRide) {
+        clearRideTimeout(timedOutRide._id);
+        emitRideNoRider(io, timedOutRide);
+      }
+    }
+  } catch (error) {
+    socket.emit("rideDeclineFailed", {
+      message: error.message || "Failed to decline ride",
+    });
+  }
+};
+
+const registerRideSocketHandlers = (io, socket) => {
+  socket.on("registerRider", async (payload = {}) => {
+    try {
+      const { riderId, location } = payload;
+
+      if (!riderId) {
+        socket.emit("riderRegistrationFailed", {
+          message: "riderId is required",
+        });
+        return;
+      }
+
+      riderSocketMap.set(String(riderId), socket.id);
+      socketToRiderMap.set(socket.id, String(riderId));
+      socket.join(String(riderId));
+
+      if (location?.lng !== undefined && location?.lat !== undefined) {
+        await updateRiderLiveLocation({
+          riderId,
+          coordinates: [location.lng, location.lat],
+          isOnline: true,
+        });
+      } else {
+        const rider = await setRiderOnlineState(riderId, true);
+        if (!rider) {
+          throw new Error("Rider not found");
+        }
+      }
+    } catch (error) {
+      socket.emit("riderRegistrationFailed", {
+        message: error.message || "Failed to register rider",
+      });
+    }
+  });
+
+  socket.on("registerUser", (payload = {}) => {
+    const { userId } = payload;
+    if (!userId) {
+      return;
+    }
+
+    userSocketMap.set(String(userId), socket.id);
+    socketToUserMap.set(socket.id, String(userId));
+    socket.join(String(userId));
+  });
+
+  socket.on("updateRiderLocation", async (payload = {}) => {
+    try {
+      const { riderId, lng, lat, isOnline } = payload;
+      if (!riderId || lng === undefined || lat === undefined) {
+        return;
+      }
+
+      const rider = await updateRiderLiveLocation({
+        riderId,
+        coordinates: [lng, lat],
+        isOnline,
+      });
+
+      socket.emit("riderLocationUpdated", {
+        riderId: String(rider._id),
+        location: rider.location,
+        isOnline: rider.isOnline,
+      });
+    } catch (error) {
+      socket.emit("riderLocationUpdateFailed", {
+        message: error.message || "Failed to update location",
+      });
+    }
+  });
+
+  socket.on("acceptRide", (payload) =>
+    handleRiderAcceptRide(io, socket, payload),
+  );
+  socket.on("declineRide", (payload) =>
+    handleRiderDeclineRide(io, socket, payload),
+  );
+
+  socket.on("disconnect", async () => {
+    const riderId = socketToRiderMap.get(socket.id);
+    if (riderId) {
+      riderSocketMap.delete(riderId);
+      socketToRiderMap.delete(socket.id);
+      await setRiderOnlineState(riderId, false);
+    }
+
+    const userId = socketToUserMap.get(socket.id);
+    if (userId) {
+      userSocketMap.delete(userId);
+      socketToUserMap.delete(socket.id);
+    }
+  });
+};
+
+const getOnlineSocketMaps = () => ({
+  riderSocketMap,
+  userSocketMap,
+});
+
+export {
+  dispatchRideRequestToNearbyRiders,
+  getOnlineSocketMaps,
+  registerRideSocketHandlers,
+};

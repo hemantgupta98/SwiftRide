@@ -1,0 +1,287 @@
+import mongoose from "mongoose";
+import { Rider } from "../auth/auth.model.js";
+import Ride from "./ride.model.js";
+
+const RIDE_REQUEST_TIMEOUT_MS = 12000;
+
+const toRadians = (value) => (value * Math.PI) / 180;
+
+const normalizeCoordinates = (coordinates = []) => {
+  const [lng, lat] = coordinates.map(Number);
+  return [lng, lat];
+};
+
+const assertCoordinates = (coordinates = []) => {
+  const [lng, lat] = normalizeCoordinates(coordinates);
+
+  if (
+    !Number.isFinite(lng) ||
+    !Number.isFinite(lat) ||
+    lng < -180 ||
+    lng > 180 ||
+    lat < -90 ||
+    lat > 90
+  ) {
+    throw new Error("Invalid coordinates. Use [lng, lat]");
+  }
+
+  return [lng, lat];
+};
+
+const toGeoPoint = (coordinates, label = "") => ({
+  type: "Point",
+  coordinates: assertCoordinates(coordinates),
+  label,
+});
+
+const haversineDistanceKm = (fromCoordinates, toCoordinates) => {
+  const [fromLng, fromLat] = assertCoordinates(fromCoordinates);
+  const [toLng, toLat] = assertCoordinates(toCoordinates);
+
+  const earthRadiusKm = 6371;
+  const deltaLat = toRadians(toLat - fromLat);
+  const deltaLng = toRadians(toLng - fromLng);
+
+  const a =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(toRadians(fromLat)) *
+      Math.cos(toRadians(toLat)) *
+      Math.sin(deltaLng / 2) ** 2;
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return Number((earthRadiusKm * c).toFixed(2));
+};
+
+const estimateRideMetrics = (pickupCoordinates, dropCoordinates) => {
+  const distanceKm = haversineDistanceKm(pickupCoordinates, dropCoordinates);
+  const baseFare = 35;
+  const perKmRate = 12;
+  const fareAmount = Number((baseFare + distanceKm * perKmRate).toFixed(2));
+
+  const avgSpeedKmPerHr = 28;
+  const estimatedMinutes = Math.max(
+    3,
+    Math.ceil((distanceKm / avgSpeedKmPerHr) * 60 + 2),
+  );
+
+  return {
+    distanceKm,
+    fareAmount,
+    estimatedMinutes,
+  };
+};
+
+const updateRiderLiveLocation = async ({ riderId, coordinates, isOnline }) => {
+  if (!mongoose.Types.ObjectId.isValid(riderId)) {
+    throw new Error("Invalid riderId");
+  }
+
+  const updatePayload = {
+    location: toGeoPoint(coordinates),
+  };
+
+  if (typeof isOnline === "boolean") {
+    updatePayload.isOnline = isOnline;
+  }
+
+  const rider = await Rider.findByIdAndUpdate(riderId, updatePayload, {
+    returnDocument: "after",
+    runValidators: true,
+  }).select("_id name isOnline location");
+
+  if (!rider) {
+    throw new Error("Rider not found");
+  }
+
+  return rider;
+};
+
+const setRiderOnlineState = async (riderId, isOnline) => {
+  if (!mongoose.Types.ObjectId.isValid(riderId)) {
+    return null;
+  }
+
+  return Rider.findByIdAndUpdate(
+    riderId,
+    { isOnline },
+    {
+      returnDocument: "after",
+    },
+  ).select("_id isOnline");
+};
+
+const findNearbyOnlineRiders = async ({
+  pickupCoordinates,
+  radiusKm = 2,
+  excludeRiderIds = [],
+}) => {
+  const safePickupCoordinates = assertCoordinates(pickupCoordinates);
+  const maxDistanceMeters = Math.round(radiusKm * 1000);
+
+  const excludeIds = excludeRiderIds
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+
+  const query = {
+    isOnline: true,
+    location: {
+      $near: {
+        $geometry: {
+          type: "Point",
+          coordinates: safePickupCoordinates,
+        },
+        $maxDistance: maxDistanceMeters,
+      },
+    },
+  };
+
+  if (excludeIds.length > 0) {
+    query._id = { $nin: excludeIds };
+  }
+
+  return Rider.find(query)
+    .select("_id name location isOnline vechileType")
+    .lean();
+};
+
+const createRideBooking = async ({
+  userId,
+  pickupCoordinates,
+  dropCoordinates,
+}) => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw new Error("Invalid userId");
+  }
+
+  const pickup = assertCoordinates(pickupCoordinates);
+  const drop = assertCoordinates(dropCoordinates);
+  const { distanceKm, fareAmount, estimatedMinutes } = estimateRideMetrics(
+    pickup,
+    drop,
+  );
+
+  return Ride.create({
+    userId,
+    pickup: toGeoPoint(pickup, "Pickup"),
+    drop: toGeoPoint(drop, "Drop"),
+    distanceKm,
+    fareAmount,
+    estimatedMinutes,
+    status: "searching",
+    expiresAt: new Date(Date.now() + RIDE_REQUEST_TIMEOUT_MS),
+  });
+};
+
+const addRideRequestedRiders = async (rideId, riderIds = []) => {
+  const validRiderIds = riderIds
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+
+  if (validRiderIds.length === 0) {
+    return Ride.findById(rideId);
+  }
+
+  return Ride.findByIdAndUpdate(
+    rideId,
+    {
+      $addToSet: {
+        requestedRiderIds: {
+          $each: validRiderIds,
+        },
+      },
+    },
+    { returnDocument: "after" },
+  );
+};
+
+const acceptRideByRider = async ({ rideId, riderId }) => {
+  if (
+    !mongoose.Types.ObjectId.isValid(rideId) ||
+    !mongoose.Types.ObjectId.isValid(riderId)
+  ) {
+    throw new Error("Invalid rideId or riderId");
+  }
+
+  const ride = await Ride.findOneAndUpdate(
+    {
+      _id: rideId,
+      status: "searching",
+      riderId: null,
+    },
+    {
+      $set: {
+        riderId,
+        status: "accepted",
+        acceptedAt: new Date(),
+      },
+    },
+    { returnDocument: "after" },
+  );
+
+  return ride;
+};
+
+const declineRideByRider = async ({ rideId, riderId }) => {
+  if (
+    !mongoose.Types.ObjectId.isValid(rideId) ||
+    !mongoose.Types.ObjectId.isValid(riderId)
+  ) {
+    throw new Error("Invalid rideId or riderId");
+  }
+
+  return Ride.findOneAndUpdate(
+    {
+      _id: rideId,
+      status: "searching",
+    },
+    {
+      $addToSet: {
+        declinedRiderIds: riderId,
+      },
+    },
+    { returnDocument: "after" },
+  );
+};
+
+const markRideTimedOut = async (rideId) => {
+  if (!mongoose.Types.ObjectId.isValid(rideId)) {
+    return null;
+  }
+
+  return Ride.findOneAndUpdate(
+    {
+      _id: rideId,
+      status: "searching",
+    },
+    {
+      $set: {
+        status: "timeout",
+      },
+    },
+    { returnDocument: "after" },
+  );
+};
+
+const findRideById = async (rideId) => {
+  if (!mongoose.Types.ObjectId.isValid(rideId)) {
+    return null;
+  }
+
+  return Ride.findById(rideId).lean();
+};
+
+export {
+  RIDE_REQUEST_TIMEOUT_MS,
+  addRideRequestedRiders,
+  acceptRideByRider,
+  createRideBooking,
+  declineRideByRider,
+  estimateRideMetrics,
+  findNearbyOnlineRiders,
+  findRideById,
+  haversineDistanceKm,
+  markRideTimedOut,
+  setRiderOnlineState,
+  updateRiderLiveLocation,
+};

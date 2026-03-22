@@ -1,7 +1,7 @@
 import { io } from "socket.io-client";
 
 export const socket = io(
-  process.env.NEXT_PUBLIC_API_URL2! || "http://localhost:6000/api",
+  process.env.NEXT_PUBLIC_API_URL2! || "http://localhost:5000",
   {
     autoConnect: false,
   }

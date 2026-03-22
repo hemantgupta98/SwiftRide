@@ -47,11 +47,29 @@ const authRiderSchema = new mongoose.Schema(
     contact: { type: String, default: "" },
     address: { type: String, default: "" },
     bio: { type: String, default: "" },
+    isOnline: { type: Boolean, default: false },
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number],
+        default: [0, 0],
+        validate: {
+          validator: (value) => Array.isArray(value) && value.length === 2,
+          message: "Location coordinates must be [lng, lat]",
+        },
+      },
+    },
     otpCode: { type: String },
     otpExpiresAt: { type: Date },
   },
   { timestamps: true },
 );
+
+authRiderSchema.index({ location: "2dsphere" });
 
 authRiderSchema.pre("save", async function () {
   if (!this.isModified("password")) return;

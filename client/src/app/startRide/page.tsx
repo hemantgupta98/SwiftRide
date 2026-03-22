@@ -1,13 +1,30 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { forwardRef, useEffect, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { api } from "../../../lib/api";
+import { socket } from "../../../lib/socket";
 
 import "leaflet/dist/leaflet.css";
 import { MapPin, Flag, MoreVertical } from "lucide-react";
 import { Toaster, toast } from "sonner";
 type LatLng = [number, number];
+
+const parseUserIdFromToken = (token: string) => {
+  try {
+    const base64UrlPayload = token.split(".")[1] || "";
+    const base64Payload = base64UrlPayload
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(base64UrlPayload.length / 4) * 4, "=");
+
+    const payload = JSON.parse(atob(base64Payload));
+    return payload?.id ? String(payload.id) : null;
+  } catch {
+    return null;
+  }
+};
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
@@ -44,9 +61,63 @@ export default function Page() {
   const [duration, setDuration] = useState<number | string>("");
   const [isRideBooked, setIsRideBooked] = useState(false);
   const [isRideMenuOpen, setIsRideMenuOpen] = useState(false);
+  const [bookedRideId, setBookedRideId] = useState<string | null>(null);
+  const bookedRideIdRef = useRef<string | null>(null);
+
+  const userId = useMemo(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const token = localStorage.getItem("token") || "";
+    return parseUserIdFromToken(token);
+  }, []);
 
   const fare = distance ? Number(distance) * 15 : 0;
   const hasBothLocations = Boolean(pickupLocation && dropLocation);
+
+  useEffect(() => {
+    bookedRideIdRef.current = bookedRideId;
+  }, [bookedRideId]);
+
+  useEffect(() => {
+    socket.connect();
+
+    const onConnect = () => {
+      if (userId) {
+        socket.emit("registerUser", { userId });
+      }
+    };
+
+    const onRideAccepted = (payload: { rideId?: string; message?: string }) => {
+      if (!payload?.rideId || payload.rideId !== bookedRideIdRef.current) {
+        return;
+      }
+
+      toast.success(payload.message || "A rider accepted your ride.");
+    };
+
+    const onRideNoRider = (payload: { rideId?: string; message?: string }) => {
+      if (!payload?.rideId || payload.rideId !== bookedRideIdRef.current) {
+        return;
+      }
+
+      toast.error(payload.message || "No rider accepted your ride request.");
+      setIsRideBooked(false);
+      setBookedRideId(null);
+    };
+
+    socket.on("connect", onConnect);
+    socket.on("rideAccepted", onRideAccepted);
+    socket.on("rideNoRider", onRideNoRider);
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("rideAccepted", onRideAccepted);
+      socket.off("rideNoRider", onRideNoRider);
+      socket.disconnect();
+    };
+  }, [userId]);
 
   const isInRanchiJharkhand = (location: any) => {
     const label = String(location?.display_name || "").toLowerCase();
@@ -239,8 +310,40 @@ export default function Page() {
       return;
     }
 
-    setIsRideBooked(true);
-    toast.success("Booking ride complete. Your ride is confirmed.");
+    if (!userId) {
+      toast.error("Please login again to book a ride.");
+      return;
+    }
+
+    try {
+      const response = await api.post("/ride/book-ride", {
+        userId,
+        pickup: {
+          lng: Number(finalPickup.lon),
+          lat: Number(finalPickup.lat),
+        },
+        drop: {
+          lng: Number(finalDrop.lon),
+          lat: Number(finalDrop.lat),
+        },
+      });
+
+      const rideId = response?.data?.data?.rideId;
+
+      if (!rideId) {
+        throw new Error("Ride ID not returned from server");
+      }
+
+      setBookedRideId(String(rideId));
+      setIsRideBooked(true);
+      toast.success("Ride request sent. Waiting for rider acceptance.");
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Unable to book ride right now";
+      toast.error(message);
+    }
   };
 
   const resetRideState = () => {
@@ -256,6 +359,7 @@ export default function Page() {
     setDuration("");
     setIsRideBooked(false);
     setIsRideMenuOpen(false);
+    setBookedRideId(null);
   };
 
   // Auto-generate live route details as soon as both locations are selected.

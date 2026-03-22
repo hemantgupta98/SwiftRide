@@ -1,8 +1,53 @@
 "use client";
 
 import { ArrowUpRight, Wallet, Download, Filter } from "lucide-react";
+import { useEffect, useState } from "react";
+
+type EarningsEntry = {
+  id: string;
+  date: string;
+  amount: number;
+  distanceKm: number;
+  durationMinutes: number;
+};
+
+const EARNINGS_STORAGE_KEY = "rider_earnings_history";
 
 export default function EarningsPage() {
+  const [earningsHistory, setEarningsHistory] = useState<EarningsEntry[]>([]);
+  const weeklyBarHeights = [
+    "h-2/5",
+    "h-3/5",
+    "h-[55%]",
+    "h-[70%]",
+    "h-[90%]",
+    "h-full",
+    "h-[65%]",
+  ];
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const loadEarnings = () => {
+      try {
+        const rawData = localStorage.getItem(EARNINGS_STORAGE_KEY);
+        const parsedData = rawData ? JSON.parse(rawData) : [];
+        setEarningsHistory(Array.isArray(parsedData) ? parsedData : []);
+      } catch {
+        setEarningsHistory([]);
+      }
+    };
+
+    loadEarnings();
+    window.addEventListener("storage", loadEarnings);
+
+    return () => {
+      window.removeEventListener("storage", loadEarnings);
+    };
+  }, []);
+
   const payouts = [
     {
       id: "TX-9082",
@@ -116,11 +161,10 @@ export default function EarningsPage() {
           <h3 className="font-semibold mb-4">Weekly Overview</h3>
 
           <div className="flex items-end justify-between h-32 gap-2">
-            {[40, 60, 55, 70, 90, 100, 65].map((h, i) => (
+            {weeklyBarHeights.map((heightClass, i) => (
               <div
                 key={i}
-                className="bg-green-500 rounded w-6"
-                style={{ height: `${h}%` }}
+                className={`bg-green-500 rounded w-6 ${heightClass}`}
               />
             ))}
           </div>
@@ -213,6 +257,47 @@ export default function EarningsPage() {
           <p className="text-sm text-gray-300">
             Update bank details and automatic withdrawal rules.
           </p>
+        </div>
+
+        <div className="col-span-12 bg-white text-black rounded-xl p-6">
+          <h3 className="font-semibold text-lg">Earnings History</h3>
+          <p className="text-gray-500 text-sm">
+            Completed rides with amount, distance, and duration.
+          </p>
+
+          {earningsHistory.length === 0 ? (
+            <div className="mt-4 rounded-lg border border-dashed border-gray-300 p-8 text-center">
+              <p className="font-semibold text-gray-700">No earnings yet</p>
+              <p className="text-sm text-gray-500">
+                Start riding to earn money
+              </p>
+            </div>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-gray-500 border-b">
+                  <tr>
+                    <th className="text-left py-2">Date</th>
+                    <th className="text-left py-2">Amount Earned</th>
+                    <th className="text-left py-2">Distance</th>
+                    <th className="text-left py-2">Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {earningsHistory.map((entry) => (
+                    <tr key={entry.id} className="border-b">
+                      <td className="py-3">{entry.date}</td>
+                      <td className="font-semibold text-green-600">
+                        ₹{entry.amount.toFixed(2)}
+                      </td>
+                      <td>{entry.distanceKm.toFixed(2)} km</td>
+                      <td>{entry.durationMinutes} min</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
