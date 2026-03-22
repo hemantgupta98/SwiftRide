@@ -3,9 +3,7 @@
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 import { divIcon } from "leaflet";
-import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
-
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
   { ssr: false },
@@ -30,9 +28,19 @@ type EarningsEntry = {
   amount: number;
   distanceKm: number;
   durationMinutes: number;
+  startedAt?: string;
+};
+
+type OnlineSessionEntry = {
+  id: string;
+  startedAt: string;
+  endedAt: string;
+  durationMinutes: number;
 };
 
 const EARNINGS_STORAGE_KEY = "rider_earnings_history";
+const ONLINE_HISTORY_STORAGE_KEY = "rider_online_history";
+const ONLINE_ACTIVE_START_STORAGE_KEY = "rider_online_active_start";
 
 const riderMarkerIcon = divIcon({
   html: '<span style="display:block;width:18px;height:18px;background:#22c55e;border:3px solid #ffffff;border-radius:9999px;box-shadow:0 0 0 2px #15803d;"></span>',
@@ -47,6 +55,11 @@ export default function Dashboard() {
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string>("");
   const [earningsHistory, setEarningsHistory] = useState<EarningsEntry[]>([]);
+  const [onlineHistory, setOnlineHistory] = useState<OnlineSessionEntry[]>([]);
+  const [activeOnlineStart, setActiveOnlineStart] = useState<string | null>(
+    null,
+  );
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const watchIdRef = useRef<number | null>(null);
 
   const mapCenter = useMemo<[number, number]>(
@@ -59,23 +72,115 @@ export default function Dashboard() {
       return;
     }
 
-    const loadEarnings = () => {
+    const loadDashboardData = () => {
       try {
-        const rawData = localStorage.getItem(EARNINGS_STORAGE_KEY);
-        const parsedData = rawData ? JSON.parse(rawData) : [];
-        setEarningsHistory(Array.isArray(parsedData) ? parsedData : []);
+        const rawEarnings = localStorage.getItem(EARNINGS_STORAGE_KEY);
+        const parsedEarnings = rawEarnings ? JSON.parse(rawEarnings) : [];
+        setEarningsHistory(Array.isArray(parsedEarnings) ? parsedEarnings : []);
       } catch {
         setEarningsHistory([]);
       }
+
+      try {
+        const rawOnlineHistory = localStorage.getItem(
+          ONLINE_HISTORY_STORAGE_KEY,
+        );
+        const parsedOnlineHistory = rawOnlineHistory
+          ? JSON.parse(rawOnlineHistory)
+          : [];
+        setOnlineHistory(
+          Array.isArray(parsedOnlineHistory) ? parsedOnlineHistory : [],
+        );
+      } catch {
+        setOnlineHistory([]);
+      }
+
+      const activeStart = localStorage.getItem(ONLINE_ACTIVE_START_STORAGE_KEY);
+      if (activeStart) {
+        setActiveOnlineStart(activeStart);
+        setOnline(true);
+      }
     };
 
-    loadEarnings();
-    window.addEventListener("storage", loadEarnings);
+    loadDashboardData();
+    window.addEventListener("storage", loadDashboardData);
 
     return () => {
-      window.removeEventListener("storage", loadEarnings);
+      window.removeEventListener("storage", loadDashboardData);
     };
   }, []);
+
+  const persistCompletedOnlineSession = useCallback((startTime: string) => {
+    const endTime = new Date().toISOString();
+    const durationMs =
+      new Date(endTime).getTime() - new Date(startTime).getTime();
+
+    const completedSession: OnlineSessionEntry = {
+      id: `${new Date(startTime).getTime()}-${new Date(endTime).getTime()}`,
+      startedAt: startTime,
+      endedAt: endTime,
+      durationMinutes: Math.max(1, Math.round(durationMs / 60000)),
+    };
+
+    setOnlineHistory((previous) => {
+      const updatedHistory = [completedSession, ...previous].slice(0, 20);
+      localStorage.setItem(
+        ONLINE_HISTORY_STORAGE_KEY,
+        JSON.stringify(updatedHistory),
+      );
+      return updatedHistory;
+    });
+
+    localStorage.removeItem(ONLINE_ACTIVE_START_STORAGE_KEY);
+    setActiveOnlineStart(null);
+  }, []);
+
+  const handleGoOnline = useCallback(() => {
+    if (online) {
+      return;
+    }
+
+    setOnline(true);
+    if (!activeOnlineStart) {
+      const startTime = new Date().toISOString();
+      setActiveOnlineStart(startTime);
+      localStorage.setItem(ONLINE_ACTIVE_START_STORAGE_KEY, startTime);
+    }
+  }, [online, activeOnlineStart]);
+
+  const handleGoOffline = useCallback(() => {
+    if (!online && !activeOnlineStart) {
+      return;
+    }
+
+    setOnline(false);
+    if (activeOnlineStart) {
+      persistCompletedOnlineSession(activeOnlineStart);
+    }
+  }, [online, activeOnlineStart, persistCompletedOnlineSession]);
+
+  const handleToggleOnline = useCallback(() => {
+    if (online) {
+      handleGoOffline();
+      return;
+    }
+
+    handleGoOnline();
+  }, [online, handleGoOffline, handleGoOnline]);
+
+  useEffect(() => {
+    if (!online) {
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      setNowTick(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [online]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -99,7 +204,7 @@ export default function Dashboard() {
     if (!navigator.geolocation) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocationError("Geolocation is not supported by your browser.");
-      setOnline(false);
+      handleGoOffline();
       return;
     }
 
@@ -114,7 +219,7 @@ export default function Dashboard() {
       () => {
         setLocationError("Unable to fetch current location.");
         setIsLocating(false);
-        setOnline(false);
+        handleGoOffline();
       },
       {
         enableHighAccuracy: true,
@@ -144,7 +249,57 @@ export default function Dashboard() {
     return () => {
       stopTracking();
     };
-  }, [online]);
+  }, [online, handleGoOffline]);
+
+  const todayDateString = new Date().toDateString();
+
+  const todaysEarnings = earningsHistory.reduce((sum, entry) => {
+    const entryDate = entry.startedAt
+      ? new Date(entry.startedAt)
+      : new Date(entry.date);
+
+    if (Number.isNaN(entryDate.getTime())) {
+      return sum;
+    }
+
+    return entryDate.toDateString() === todayDateString
+      ? sum + (Number.isFinite(entry.amount) ? entry.amount : 0)
+      : sum;
+  }, 0);
+
+  const totalRides = earningsHistory.length;
+
+  const activeOnlineDurationMs =
+    online && activeOnlineStart
+      ? Math.max(0, nowTick - new Date(activeOnlineStart).getTime())
+      : 0;
+
+  const formatDuration = (durationMs: number) => {
+    const totalMinutes = Math.max(0, Math.floor(durationMs / 60000));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (hours === 0) {
+      return `${minutes}m`;
+    }
+
+    return `${hours}h ${minutes}m`;
+  };
+
+  const formatSessionDateTime = (iso: string) => {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+      return "-";
+    }
+
+    return date.toLocaleString();
+  };
+
+  const currentOnlineDurationLabel = formatDuration(activeOnlineDurationMs);
+  const lastOnlineSession = onlineHistory[0];
+  const lastOnlineDurationLabel = lastOnlineSession
+    ? formatDuration(lastOnlineSession.durationMinutes * 60000)
+    : "0m";
 
   return (
     <div className="min-h-screen bg-[#0c2d4a] text-white p-6">
@@ -155,10 +310,15 @@ export default function Dashboard() {
             <p className="font-semibold">
               Current Status: {online ? "Online" : "Offline"}
             </p>
+            <p className="text-xs text-gray-300 mt-1">
+              {online
+                ? `Online now: ${currentOnlineDurationLabel}`
+                : `Last online duration: ${lastOnlineDurationLabel}`}
+            </p>
           </div>
 
           <button
-            onClick={() => setOnline((previous) => !previous)}
+            onClick={handleToggleOnline}
             className={`relative min-w-44 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 ${
               online
                 ? "bg-green-500 text-white shadow-lg shadow-green-900/30"
@@ -192,19 +352,6 @@ export default function Dashboard() {
               control of your schedule and your earnings.
             </p>
 
-            <div className="flex flex-wrap gap-4">
-              <button
-                onClick={() => setOnline(true)}
-                className="bg-green-500 hover:bg-green-600 px-6 py-3 rounded-lg font-semibold"
-              >
-                Go Online Now
-              </button>
-
-              <button className="border border-gray-400 px-6 py-3 rounded-lg">
-                View Promotions →
-              </button>
-            </div>
-
             <p className="text-sm text-gray-400">
               Join{" "}
               <span className="text-white font-semibold">1,200+ drivers</span>{" "}
@@ -226,7 +373,7 @@ export default function Dashboard() {
             </p>
 
             <button
-              onClick={() => setOnline(!online)}
+              onClick={handleToggleOnline}
               className="bg-green-500 text-white w-full py-3 rounded-lg font-semibold"
             >
               {online ? "Go Offline" : "Go Online"}
@@ -237,15 +384,24 @@ export default function Dashboard() {
         {/* PERFORMANCE */}
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold">Today&apos;s Performance</h2>
-          <p className="text-green-400 cursor-pointer">Detailed Stats →</p>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard title="Today's Earnings" value="$142.50" icon="💰" />
+          <StatCard
+            title="Today's Earnings"
+            value={`₹${todaysEarnings.toFixed(2)}`}
+            icon="💰"
+          />
 
-          <StatCard title="Total Rides" value="12" icon="🚘" />
+          <StatCard title="Total Rides" value={String(totalRides)} icon="🚘" />
 
-          <StatCard title="Hours Online" value="6.5h" icon="⏰" />
+          <StatCard
+            title="Hours Online"
+            value={
+              online ? currentOnlineDurationLabel : lastOnlineDurationLabel
+            }
+            icon="⏰"
+          />
 
           <StatCard title="Rider Rating" value="4.95" icon="⭐" />
         </div>
@@ -262,7 +418,7 @@ export default function Dashboard() {
             </h3>
 
             <button
-              onClick={() => setOnline(!online)}
+              onClick={handleToggleOnline}
               className="bg-green-500 text-white px-6 py-3 rounded-lg mt-4"
             >
               {online ? "Go Offline" : "Go Online"}
@@ -273,9 +429,19 @@ export default function Dashboard() {
 
           {/* Mobile Stats */}
           <div className="grid grid-cols-2 gap-4">
-            <StatCard title="Today's Pay" value="$142.80" icon="💰" />
-            <StatCard title="Rides" value="12" icon="🚗" />
-            <StatCard title="Online" value="5.2h" icon="⏱" />
+            <StatCard
+              title="Today's Pay"
+              value={`₹${todaysEarnings.toFixed(2)}`}
+              icon="💰"
+            />
+            <StatCard title="Rides" value={String(totalRides)} icon="🚗" />
+            <StatCard
+              title="Online"
+              value={
+                online ? currentOnlineDurationLabel : lastOnlineDurationLabel
+              }
+              icon="⏱"
+            />
             <StatCard title="Rating" value="4.95" icon="⭐" />
           </div>
 
@@ -283,6 +449,53 @@ export default function Dashboard() {
             Downtown rides have a <b>1.5x multiplier</b>. Head there for maximum
             earnings!
           </div>
+        </div>
+
+        <div className="rounded-2xl bg-white p-4 md:p-6 shadow-lg">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Online Time History
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Your latest online sessions with start time, end time, and duration.
+          </p>
+
+          {onlineHistory.length === 0 ? (
+            <div className="mt-6 rounded-xl border border-dashed border-gray-300 p-6 text-center">
+              <p className="text-sm font-semibold text-gray-700">
+                No online history yet
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Go online and complete a session to see history.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 overflow-x-auto">
+              <table className="w-full text-left text-sm text-gray-700">
+                <thead className="border-b text-xs uppercase tracking-wide text-gray-500">
+                  <tr>
+                    <th className="px-2 py-3">Start</th>
+                    <th className="px-2 py-3">End</th>
+                    <th className="px-2 py-3">Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {onlineHistory.map((session) => (
+                    <tr key={session.id} className="border-b last:border-none">
+                      <td className="px-2 py-3">
+                        {formatSessionDateTime(session.startedAt)}
+                      </td>
+                      <td className="px-2 py-3">
+                        {formatSessionDateTime(session.endedAt)}
+                      </td>
+                      <td className="px-2 py-3 font-semibold text-blue-700">
+                        {formatDuration(session.durationMinutes * 60000)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         <div className="rounded-2xl bg-white p-4 md:p-6 shadow-lg">
@@ -396,15 +609,6 @@ function StatCard({
       <div className="text-2xl">{icon}</div>
       <p className="text-sm text-gray-500">{title}</p>
       <p className="text-xl font-bold">{value}</p>
-    </div>
-  );
-}
-
-function AlertCard({ title, desc }: { title: string; desc: string }) {
-  return (
-    <div className="bg-white text-gray-800 rounded-xl p-4 shadow">
-      <h3 className="font-semibold">{title}</h3>
-      <p className="text-sm text-gray-500">{desc}</p>
     </div>
   );
 }
