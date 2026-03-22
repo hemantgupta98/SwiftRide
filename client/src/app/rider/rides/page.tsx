@@ -69,7 +69,31 @@ export default function RideControlPage() {
   const [serverMessage, setServerMessage] = useState<string>(
     "Waiting for new ride request",
   );
+  const [earningsHistory, setEarningsHistory] = useState<EarningsEntry[]>([]);
   const activeRideRef = useRef<RideRequestPayload | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const loadEarnings = () => {
+      try {
+        const rawData = localStorage.getItem(EARNINGS_STORAGE_KEY);
+        const parsedData = rawData ? JSON.parse(rawData) : [];
+        setEarningsHistory(Array.isArray(parsedData) ? parsedData : []);
+      } catch {
+        setEarningsHistory([]);
+      }
+    };
+
+    loadEarnings();
+    window.addEventListener("storage", loadEarnings);
+
+    return () => {
+      window.removeEventListener("storage", loadEarnings);
+    };
+  }, []);
 
   useEffect(() => {
     activeRideRef.current = activeRide;
@@ -293,6 +317,26 @@ export default function RideControlPage() {
     setServerMessage("Ride completed. Earnings added to your history.");
   };
 
+  const todayDateString = new Date().toDateString();
+
+  const todaysEarnings = earningsHistory.reduce((sum, entry) => {
+    const entryDate = entry.startedAt
+      ? new Date(entry.startedAt)
+      : new Date(entry.date);
+
+    if (Number.isNaN(entryDate.getTime())) {
+      return sum;
+    }
+
+    return entryDate.toDateString() === todayDateString
+      ? sum + (Number.isFinite(entry.amount) ? entry.amount : 0)
+      : sum;
+  }, 0);
+
+  const totalTrips = earningsHistory.length;
+  const dailyGoal = 200;
+  const progressPercent = Math.min((todaysEarnings / dailyGoal) * 100, 100);
+
   const pickupText =
     activeRide?.pickup.label ||
     formatCoordinates(activeRide?.pickup.coordinates);
@@ -446,96 +490,30 @@ export default function RideControlPage() {
             <div className="flex justify-between mb-4">
               <div>
                 <p className="text-gray-400 text-sm">EARNINGS</p>
-                <p className="text-2xl font-bold">$142.80</p>
+                <p className="text-2xl font-bold">
+                  ₹{todaysEarnings.toFixed(2)}
+                </p>
               </div>
 
               <div>
                 <p className="text-gray-400 text-sm">TRIPS</p>
-                <p className="text-2xl font-bold">12</p>
+                <p className="text-2xl font-bold">{totalTrips}</p>
               </div>
             </div>
 
             <div className="w-full bg-gray-700 rounded-full h-2">
-              <div className="bg-green-400 h-2 rounded-full w-3/4"></div>
+              <div
+                className="bg-green-400 h-2 rounded-full transition-all"
+                style={{ width: `${progressPercent}%` }}
+              ></div>
             </div>
 
             <p className="text-xs text-gray-400 mt-2">
-              75% of your $200 daily goal reached
+              {Math.round(progressPercent)}% of ₹{dailyGoal} daily goal reached
             </p>
-          </div>
-
-          {/* Nearby Opportunities */}
-
-          <div className="bg-[#1b345a] rounded-xl p-6">
-            <div className="flex justify-between mb-4">
-              <h3 className="font-semibold">Nearby Opportunities</h3>
-              <span className="text-green-400 text-sm">4 LOCAL</span>
-            </div>
-
-            <div className="space-y-3">
-              <Opportunity
-                title="Airport Express"
-                distance="0.8 mi away"
-                price="$42.00"
-              />
-
-              <Opportunity
-                title="Short Hop - Grocery"
-                distance="1.2 mi away"
-                price="$9.50"
-              />
-
-              <Opportunity
-                title="Westside Commute"
-                distance="2.5 mi away"
-                price="$21.20"
-              />
-
-              <Opportunity
-                title="Late Night Ride"
-                distance="3.1 mi away"
-                price="$15.00"
-              />
-            </div>
-          </div>
-
-          {/* Surge */}
-
-          <div className="bg-[#0f3a2d] rounded-xl p-6 flex justify-between items-center">
-            <div>
-              <p className="font-semibold">Surge Multiplier Active!</p>
-              <p className="text-xs text-gray-300">
-                Downtown areas are seeing higher fares.
-              </p>
-            </div>
-
-            <button className="bg-red-500 w-12 h-12 rounded-full flex items-center justify-center">
-              →
-            </button>
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Opportunity({
-  title,
-  distance,
-  price,
-}: {
-  title: string;
-  distance: string;
-  price: string;
-}) {
-  return (
-    <div className="bg-[#2a4b75] p-4 rounded-lg flex justify-between items-center hover:bg-[#335a8b] cursor-pointer transition">
-      <div>
-        <p className="font-medium">{title}</p>
-        <p className="text-xs text-gray-300">{distance}</p>
-      </div>
-
-      <p className="text-green-400 font-semibold">{price}</p>
     </div>
   );
 }
