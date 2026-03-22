@@ -62,6 +62,9 @@ const formatCoordinates = (
 
 export default function RideControlPage() {
   const [activeRide, setActiveRide] = useState<RideRequestPayload | null>(null);
+  const [ongoingRide, setOngoingRide] = useState<RideRequestPayload | null>(
+    null,
+  );
   const [countdown, setCountdown] = useState<number>(0);
   const [serverMessage, setServerMessage] = useState<string>(
     "Waiting for new ride request",
@@ -190,10 +193,10 @@ export default function RideControlPage() {
 
     const onRideAcceptSuccess = () => {
       if (activeRideRef.current) {
-        persistCompletedRide(activeRideRef.current);
+        setOngoingRide(activeRideRef.current);
       }
 
-      setServerMessage("You accepted this ride. Proceed to pickup.");
+      setServerMessage("Ride accepted. Complete the ride after drop-off.");
       setActiveRide(null);
       setCountdown(0);
     };
@@ -278,6 +281,16 @@ export default function RideControlPage() {
     setServerMessage("Ride declined. Waiting for next request...");
     setActiveRide(null);
     setCountdown(0);
+  };
+
+  const handleCompleteRide = () => {
+    if (!ongoingRide) {
+      return;
+    }
+
+    persistCompletedRide(ongoingRide);
+    setOngoingRide(null);
+    setServerMessage("Ride completed. Earnings added to your history.");
   };
 
   const pickupText =
@@ -397,6 +410,21 @@ export default function RideControlPage() {
                 REJECT
               </button>
             </div>
+
+            {ongoingRide && (
+              <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4">
+                <p className="text-sm font-medium text-green-800">
+                  Accepted ride in progress • Fare ₹
+                  {ongoingRide.fareAmount.toFixed(2)}
+                </p>
+                <button
+                  onClick={handleCompleteRide}
+                  className="mt-3 w-full rounded-xl bg-green-600 py-3 font-semibold text-white hover:bg-green-700"
+                >
+                  COMPLETE RIDE
+                </button>
+              </div>
+            )}
           </div>
 
           <p className="text-gray-400 text-center mt-4 text-sm">
