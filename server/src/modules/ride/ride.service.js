@@ -271,6 +271,19 @@ const findRideById = async (rideId) => {
   return Ride.findById(rideId).lean();
 };
 
+const findRideHistoryByUserId = async (userId) => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw new Error("Invalid userId");
+  }
+
+  return Ride.find({ userId })
+    .sort({ createdAt: -1 })
+    .select(
+      "_id pickup drop distanceKm fareAmount estimatedMinutes status createdAt updatedAt",
+    )
+    .lean();
+};
+
 export {
   RIDE_REQUEST_TIMEOUT_MS,
   addRideRequestedRiders,
@@ -280,6 +293,7 @@ export {
   estimateRideMetrics,
   findNearbyOnlineRiders,
   findRideById,
+  findRideHistoryByUserId,
   haversineDistanceKm,
   markRideTimedOut,
   setRiderOnlineState,

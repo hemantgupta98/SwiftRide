@@ -1,5 +1,6 @@
 import {
   createRideBooking,
+  findRideHistoryByUserId,
   findNearbyOnlineRiders,
   updateRiderLiveLocation,
 } from "./ride.service.js";
@@ -106,8 +107,35 @@ const bookRideController = async (req, res) => {
   }
 };
 
+const getRideHistoryController = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Please login first",
+      });
+    }
+
+    const rides = await findRideHistoryByUserId(userId);
+
+    return res.status(200).json({
+      success: true,
+      count: rides.length,
+      data: rides,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Failed to fetch ride history",
+    });
+  }
+};
+
 export {
   bookRideController,
   findNearbyRidersController,
+  getRideHistoryController,
   updateRiderLocationController,
 };
