@@ -1,5 +1,35 @@
 import { Notification } from "./notification.model.js";
 
+export const createNotificationForUser = async (req, res) => {
+  try {
+    const { type, title, message } = req.body;
+
+    if (!type || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "type and message are required",
+      });
+    }
+
+    const notification = await Notification.create({
+      user: req.user.id,
+      type,
+      title,
+      message,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: notification,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create notification",
+    });
+  }
+};
+
 export const getNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({

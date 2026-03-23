@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  createNotificationForUser,
   getNotifications,
   markAsRead,
   deleteNotification,
@@ -8,6 +9,8 @@ import {
 import { verifyToken } from "../../middleware/main.middleware.js";
 
 const router = express.Router();
+
+router.post("/", verifyToken, createNotificationForUser);
 
 router.get("/", verifyToken, getNotifications);
 

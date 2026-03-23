@@ -22,8 +22,21 @@ const notificationSchema = new mongoose.Schema(
         "BACKLOG_UPDATE",
         "GITHUB_CONNECTED",
         "INVITE_SEND",
+        "RIDE_BOOKED",
+        "RIDE_ACCEPTED",
+        "RIDE_CANCELLED",
+        "RIDE_COMPLETED",
+        "RIDE_TIMEOUT",
+        "PASS_PROGRESS",
+        "PASS_UNLOCKED",
+        "REWARD_UNLOCKED",
       ],
       required: true,
+    },
+
+    title: {
+      type: String,
+      trim: true,
     },
 
     message: {

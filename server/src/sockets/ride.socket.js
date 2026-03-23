@@ -8,6 +8,7 @@ import {
   setRiderOnlineState,
   updateRiderLiveLocation,
 } from "../modules/ride/ride.service.js";
+import { createNotification } from "../modules/notification/notification.service.js";
 
 const riderSocketMap = new Map();
 const userSocketMap = new Map();
@@ -34,10 +35,17 @@ const clearRideTimeout = (rideId) => {
   }
 };
 
-const emitRideNoRider = (io, ride) => {
+const emitRideNoRider = async (io, ride) => {
   emitToUser(io, ride.userId, "rideNoRider", {
     rideId: String(ride._id),
     message: "No rider accepted your request",
+  });
+
+  await createNotification({
+    userId: ride.userId,
+    type: "RIDE_TIMEOUT",
+    title: "Ride Not Assigned",
+    message: "No rider accepted your request. Please try booking again.",
   });
 };
 
@@ -48,7 +56,7 @@ const startRideRequestTimeout = (io, ride) => {
     const timedOutRide = await markRideTimedOut(ride._id);
     if (!timedOutRide) return;
 
-    emitRideNoRider(io, timedOutRide);
+    await emitRideNoRider(io, timedOutRide);
   }, RIDE_REQUEST_TIMEOUT_MS);
 
   rideTimeoutMap.set(String(ride._id), timeoutId);
@@ -65,7 +73,7 @@ const dispatchRideRequestToNearbyRiders = async (ride) => {
 
   if (!nearbyRiders.length) {
     await markRideTimedOut(ride._id);
-    emitRideNoRider(io, ride);
+    await emitRideNoRider(io, ride);
     return;
   }
 
@@ -131,6 +139,13 @@ const handleRiderAcceptRide = async (io, socket, payload) => {
       message: "Your ride has been accepted",
     });
 
+    await createNotification({
+      userId: acceptedRide.userId,
+      type: "RIDE_ACCEPTED",
+      title: "Ride Accepted",
+      message: "A rider has accepted your ride request.",
+    });
+
     for (const requestedRiderId of acceptedRide.requestedRiderIds || []) {
       if (String(requestedRiderId) === String(acceptedRide.riderId)) {
         continue;
@@ -177,7 +192,7 @@ const handleRiderDeclineRide = async (io, socket, payload) => {
       const timedOutRide = await markRideTimedOut(declinedRide._id);
       if (timedOutRide) {
         clearRideTimeout(timedOutRide._id);
-        emitRideNoRider(io, timedOutRide);
+        await emitRideNoRider(io, timedOutRide);
       }
     }
   } catch (error) {

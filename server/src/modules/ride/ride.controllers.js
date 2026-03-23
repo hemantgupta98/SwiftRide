@@ -5,6 +5,7 @@ import {
   updateRiderLiveLocation,
 } from "./ride.service.js";
 import { dispatchRideRequestToNearbyRiders } from "../../sockets/ride.socket.js";
+import { createNotification } from "../notification/notification.service.js";
 
 const updateRiderLocationController = async (req, res) => {
   try {
@@ -81,6 +82,13 @@ const bookRideController = async (req, res) => {
       userId,
       pickupCoordinates: [pickup.lng, pickup.lat],
       dropCoordinates: [drop.lng, drop.lat],
+    });
+
+    await createNotification({
+      userId,
+      type: "RIDE_BOOKED",
+      title: "Ride Booked",
+      message: "Your ride request has been created successfully.",
     });
 
     await dispatchRideRequestToNearbyRiders(ride);
