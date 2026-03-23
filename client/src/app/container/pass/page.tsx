@@ -1,15 +1,42 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Gift, Zap, CheckCircle, Ticket } from "lucide-react";
+import { api } from "@/lib/api";
 
 const PowerPassPage = () => {
-  const [ridesCompleted, setRidesCompleted] = useState(0); // example rides
+  const [ridesCompleted, setRidesCompleted] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const targetRides = 10;
+
+  useEffect(() => {
+    void (async () => {
+      setIsLoading(true);
+
+      try {
+        const response = await api.get("/ride/history");
+        const rides = Array.isArray(response.data?.data)
+          ? response.data.data
+          : [];
+        const completedRidesCount = rides.filter(
+          (ride: { status?: string }) => ride.status === "completed",
+        ).length;
+
+        setRidesCompleted(completedRidesCount);
+      } catch {
+        setRidesCompleted(0);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, []);
 
   const powerPassActive = ridesCompleted >= targetRides;
 
-  const progress = Math.min((ridesCompleted / targetRides) * 100, 100);
+  const progress = useMemo(
+    () => Math.min((ridesCompleted / targetRides) * 100, 100),
+    [ridesCompleted],
+  );
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-linear-to-br from-purple-900 via-indigo-900 to-black p-10">
@@ -40,15 +67,32 @@ const PowerPassPage = () => {
           <div className="flex justify-between text-sm text-gray-300 mb-2">
             <span>Ride Progress</span>
             <span>
-              {ridesCompleted} / {targetRides}
+              {isLoading ? "Loading..." : `${ridesCompleted} / ${targetRides}`}
             </span>
           </div>
 
-          <div className="w-full h-4 bg-gray-700 rounded-full overflow-hidden">
-            <div
-              style={{ width: `${progress}%` }}
-              className="h-full bg-linear-to-r from-pink-500 via-orange-400 to-yellow-400 transition-all duration-500"
-            />
+          <div className="w-full h-4 bg-gray-700 rounded-full overflow-hidden p-0.5">
+            <div className="h-full w-full grid grid-cols-10 gap-0.5">
+              {Array.from({ length: targetRides }).map((_, index) => {
+                const segmentFilled =
+                  index < Math.min(ridesCompleted, targetRides);
+
+                return (
+                  <span
+                    key={index}
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      segmentFilled
+                        ? "bg-linear-to-r from-pink-500 via-orange-400 to-yellow-400"
+                        : "bg-gray-600"
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="text-right text-xs text-gray-400 mt-2">
+            {Math.round(progress)}%
           </div>
         </div>
 
@@ -90,21 +134,31 @@ const PowerPassPage = () => {
         <div className="mt-10 grid grid-cols-5 gap-4">
           {Array.from({ length: 10 }).map((_, index) => {
             const completed = index < ridesCompleted;
+            const boxNumber = index + 1;
 
             return (
               <div
                 key={index}
-                className={`flex items-center justify-center rounded-xl h-14 border 
+                className={`relative overflow-hidden flex items-center justify-center rounded-xl h-14 border 
                 ${
                   completed
                     ? "bg-green-500/30 border-green-400"
                     : "bg-gray-800 border-gray-600"
                 }`}
               >
+                <span
+                  className={`absolute inset-0 flex items-center justify-center text-2xl font-bold select-none 
+                  ${completed ? "text-green-100/30" : "text-gray-500/30"}`}
+                >
+                  {boxNumber}
+                </span>
+
                 {completed ? (
-                  <CheckCircle className="text-green-400" />
+                  <CheckCircle className="text-green-300 relative z-10" />
                 ) : (
-                  <span className="text-gray-400">{index + 1}</span>
+                  <span className="text-transparent relative z-10">
+                    {boxNumber}
+                  </span>
                 )}
               </div>
             );
