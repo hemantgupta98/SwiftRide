@@ -1,6 +1,18 @@
 import mongoose from "mongoose";
 import { hashpassword } from "./auth.hashed.js";
 
+const rewardClaimSchema = new mongoose.Schema(
+  {
+    targetRides: { type: Number, required: true },
+    claimedAt: { type: Date, default: Date.now },
+    rewardMessage: {
+      type: String,
+      default: "You get 2 days for free rides",
+    },
+  },
+  { _id: false },
+);
+
 const authUserSchema = new mongoose.Schema(
   {
     userId: {
@@ -14,6 +26,10 @@ const authUserSchema = new mongoose.Schema(
     contact: { type: String, default: "" },
     address: { type: String, default: "" },
     bio: { type: String, default: "" },
+    rewardClaims: {
+      type: [rewardClaimSchema],
+      default: [],
+    },
     otpCode: { type: String },
     otpExpiresAt: { type: Date },
   },
@@ -137,6 +153,10 @@ const googleschema = new mongoose.Schema(
     contact: { type: String, default: "" },
     address: { type: String, default: "" },
     bio: { type: String, default: "" },
+    rewardClaims: {
+      type: [rewardClaimSchema],
+      default: [],
+    },
   },
   { timestamps: true },
 );

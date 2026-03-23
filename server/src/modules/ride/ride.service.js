@@ -1,8 +1,33 @@
 import mongoose from "mongoose";
-import { Rider } from "../auth/auth.model.js";
+import { Rider, User, googleDB } from "../auth/auth.model.js";
 import Ride from "./ride.model.js";
 
 const RIDE_REQUEST_TIMEOUT_MS = 12000;
+const REWARD_MESSAGE = "You get 2 days for free rides";
+const REWARD_MILESTONES = [5, 10, 15, 20];
+
+const REWARD_DEFINITIONS = [
+  {
+    rides: 5,
+    title: "Starter Reward",
+    description: "Complete 5 rides and unlock 2 days for free rides.",
+  },
+  {
+    rides: 10,
+    title: "Silver Reward",
+    description: "Complete 10 rides and unlock 2 days for free rides.",
+  },
+  {
+    rides: 15,
+    title: "Gold Reward",
+    description: "Complete 15 rides and unlock 2 days for free rides.",
+  },
+  {
+    rides: 20,
+    title: "Platinum Reward",
+    description: "Complete 20 rides and unlock 2 days for free rides.",
+  },
+];
 
 const toRadians = (value) => (value * Math.PI) / 180;
 
@@ -284,18 +309,150 @@ const findRideHistoryByUserId = async (userId) => {
     .lean();
 };
 
+const resolveCustomerModelById = async (userId) => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw new Error("Invalid userId");
+  }
+
+  const customer = await User.findById(userId).select("_id rewardClaims");
+  if (customer) {
+    return {
+      customer,
+      customerModel: User,
+    };
+  }
+
+  const googleCustomer = await googleDB
+    .findById(userId)
+    .select("_id rewardClaims");
+
+  if (googleCustomer) {
+    return {
+      customer: googleCustomer,
+      customerModel: googleDB,
+    };
+  }
+
+  throw new Error("Customer not found");
+};
+
+const countCompletedRidesByUserId = async (userId) => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw new Error("Invalid userId");
+  }
+
+  return Ride.countDocuments({
+    userId,
+    status: "completed",
+  });
+};
+
+const getRewardsStatusByUserId = async (userId) => {
+  const [{ customer }, completedRides] = await Promise.all([
+    resolveCustomerModelById(userId),
+    countCompletedRidesByUserId(userId),
+  ]);
+
+  const claimedMilestones = new Set(
+    (customer.rewardClaims || []).map((claim) => Number(claim.targetRides)),
+  );
+
+  const milestones = REWARD_DEFINITIONS.map((reward) => {
+    const isUnlocked = completedRides >= reward.rides;
+    const isClaimed = claimedMilestones.has(reward.rides);
+
+    return {
+      ...reward,
+      rewardMessage: REWARD_MESSAGE,
+      isUnlocked,
+      isClaimed,
+      canClaim: isUnlocked && !isClaimed,
+    };
+  });
+
+  return {
+    completedRides,
+    rewardMessage: REWARD_MESSAGE,
+    milestones,
+  };
+};
+
+const claimRewardByUserId = async ({ userId, targetRides }) => {
+  const safeTargetRides = Number(targetRides);
+
+  if (!REWARD_MILESTONES.includes(safeTargetRides)) {
+    throw new Error("Invalid reward milestone");
+  }
+
+  const [{ customer, customerModel }, completedRides] = await Promise.all([
+    resolveCustomerModelById(userId),
+    countCompletedRidesByUserId(userId),
+  ]);
+
+  if (completedRides < safeTargetRides) {
+    throw new Error("Target rides not completed yet");
+  }
+
+  const alreadyClaimed = (customer.rewardClaims || []).some(
+    (claim) => Number(claim.targetRides) === safeTargetRides,
+  );
+
+  if (alreadyClaimed) {
+    throw new Error("Reward already claimed");
+  }
+
+  const updatedCustomer = await customerModel.findOneAndUpdate(
+    {
+      _id: userId,
+      "rewardClaims.targetRides": { $ne: safeTargetRides },
+    },
+    {
+      $push: {
+        rewardClaims: {
+          targetRides: safeTargetRides,
+          rewardMessage: REWARD_MESSAGE,
+          claimedAt: new Date(),
+        },
+      },
+    },
+    {
+      returnDocument: "after",
+    },
+  );
+
+  if (!updatedCustomer) {
+    throw new Error("Reward already claimed");
+  }
+
+  const reward = REWARD_DEFINITIONS.find(
+    (definition) => definition.rides === safeTargetRides,
+  );
+
+  return {
+    targetRides: safeTargetRides,
+    rewardMessage: REWARD_MESSAGE,
+    title: reward?.title || "Reward",
+    description: reward?.description || "Reward unlocked",
+  };
+};
+
 export {
   RIDE_REQUEST_TIMEOUT_MS,
+  REWARD_MILESTONES,
   addRideRequestedRiders,
   acceptRideByRider,
+  claimRewardByUserId,
   createRideBooking,
+  countCompletedRidesByUserId,
   declineRideByRider,
   estimateRideMetrics,
   findNearbyOnlineRiders,
   findRideById,
   findRideHistoryByUserId,
+  getRewardsStatusByUserId,
   haversineDistanceKm,
   markRideTimedOut,
+  resolveCustomerModelById,
   setRiderOnlineState,
   updateRiderLiveLocation,
 };

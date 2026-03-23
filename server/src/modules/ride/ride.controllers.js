@@ -1,7 +1,9 @@
 import {
+  claimRewardByUserId,
   createRideBooking,
   findRideHistoryByUserId,
   findNearbyOnlineRiders,
+  getRewardsStatusByUserId,
   updateRiderLiveLocation,
 } from "./ride.service.js";
 import { dispatchRideRequestToNearbyRiders } from "../../sockets/ride.socket.js";
@@ -141,9 +143,73 @@ const getRideHistoryController = async (req, res) => {
   }
 };
 
+const getRewardsStatusController = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Please login first",
+      });
+    }
+
+    const rewardStatus = await getRewardsStatusByUserId(userId);
+
+    return res.status(200).json({
+      success: true,
+      data: rewardStatus,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Failed to fetch rewards status",
+    });
+  }
+};
+
+const claimRewardController = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const targetRides = Number(req.body?.targetRides);
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Please login first",
+      });
+    }
+
+    if (!Number.isFinite(targetRides)) {
+      return res.status(400).json({
+        success: false,
+        message: "targetRides is required",
+      });
+    }
+
+    const claimedReward = await claimRewardByUserId({
+      userId,
+      targetRides,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Reward claimed successfully",
+      data: claimedReward,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Failed to claim reward",
+    });
+  }
+};
+
 export {
   bookRideController,
+  claimRewardController,
   findNearbyRidersController,
+  getRewardsStatusController,
   getRideHistoryController,
   updateRiderLocationController,
 };
