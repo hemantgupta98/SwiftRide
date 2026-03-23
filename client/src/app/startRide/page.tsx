@@ -63,6 +63,7 @@ export default function Page() {
   const [isRideMenuOpen, setIsRideMenuOpen] = useState(false);
   const [bookedRideId, setBookedRideId] = useState<string | null>(null);
   const bookedRideIdRef = useRef<string | null>(null);
+  const rideRequestTimeoutRef = useRef<number | null>(null);
 
   const userId = useMemo(() => {
     if (typeof window === "undefined") {
@@ -80,6 +81,28 @@ export default function Page() {
     bookedRideIdRef.current = bookedRideId;
   }, [bookedRideId]);
 
+  const clearRideRequestTimeout = () => {
+    if (rideRequestTimeoutRef.current !== null) {
+      window.clearTimeout(rideRequestTimeoutRef.current);
+      rideRequestTimeoutRef.current = null;
+    }
+  };
+
+  const startRideRequestTimeout = (rideId: string) => {
+    clearRideRequestTimeout();
+
+    rideRequestTimeoutRef.current = window.setTimeout(() => {
+      if (bookedRideIdRef.current !== rideId) {
+        return;
+      }
+
+      toast.error("No rides in this area.");
+      setIsRideBooked(false);
+      setIsRideMenuOpen(false);
+      setBookedRideId(null);
+    }, 15000);
+  };
+
   useEffect(() => {
     socket.connect();
 
@@ -94,6 +117,7 @@ export default function Page() {
         return;
       }
 
+      clearRideRequestTimeout();
       toast.success(payload.message || "A rider accepted your ride.");
     };
 
@@ -102,8 +126,10 @@ export default function Page() {
         return;
       }
 
-      toast.error(payload.message || "No rider accepted your ride request.");
+      clearRideRequestTimeout();
+      toast.error(payload.message || "No rides in this area.");
       setIsRideBooked(false);
+      setIsRideMenuOpen(false);
       setBookedRideId(null);
     };
 
@@ -115,6 +141,7 @@ export default function Page() {
       socket.off("connect", onConnect);
       socket.off("rideAccepted", onRideAccepted);
       socket.off("rideNoRider", onRideNoRider);
+      clearRideRequestTimeout();
       socket.disconnect();
     };
   }, [userId]);
@@ -301,15 +328,6 @@ export default function Page() {
         return;
       }
     }
-
-    const isConfirmed = window.confirm(
-      "Are you sure you want to book this ride?",
-    );
-
-    if (!isConfirmed) {
-      return;
-    }
-
     if (!userId) {
       toast.error("Please login again to book a ride.");
       return;
@@ -334,8 +352,12 @@ export default function Page() {
         throw new Error("Ride ID not returned from server");
       }
 
-      setBookedRideId(String(rideId));
+      const createdRideId = String(rideId);
+
+      setBookedRideId(createdRideId);
       setIsRideBooked(true);
+      setIsRideMenuOpen(false);
+      startRideRequestTimeout(createdRideId);
       toast.success("Ride request sent. Waiting for rider acceptance.");
     } catch (error: any) {
       const message =
@@ -347,6 +369,7 @@ export default function Page() {
   };
 
   const resetRideState = () => {
+    clearRideRequestTimeout();
     setRoute([]);
     setPickupLocation(null);
     setDropLocation(null);

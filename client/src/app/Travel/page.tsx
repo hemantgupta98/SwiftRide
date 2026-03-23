@@ -160,6 +160,20 @@ const Page = () => {
       </div>
 
       {/* Cards */}
+      <p className=" text-red-400 font-semibold text-sm text-center mt-5">
+        Book in her official sites{" "}
+      </p>
+      <p className=" text-red-400 mb-4 font-semibold text-sm text-center ">
+        This is for sponsors
+        <a
+          href="https://www.booking.com/city/in/ranchi.en.html?aid=306395;label=ranchi-cc0l*HUb_uabDQ5Sp846_wS392972670143:pl:ta:p1:p2:ac:ap:neg:fi:tikwd-3276993427:lp9151124:li:dec:dm:ppccp=UmFuZG9tSVYkc2RlIyh9YZVcNNsENnH02-pWD53qm9c;ws=&gad_source=1&gad_campaignid=17741369&gbraid=0AAAAAD_Ls1LbvbvqeE9f-dgwvL6u9aBT7&gclid=CjwKCAjwyYPOBhBxEiwAgpT8P8T77fMBj_Xt3Sg0s56IDLusGHJR6MLJD5Ac_OBvHyXvSFyGQO3oghoCN4AQAvD_BwE"
+          target="_blank"
+          rel="noopener noreferrer"
+          className=" cursor-pointer text-blue-500 space-x-0.5"
+        >
+          ....link
+        </a>
+      </p>
 
       <div className="grid md:grid-cols-3 gap-6">
         {currentData.map((item, index) => (
