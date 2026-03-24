@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Toaster, toast } from "sonner";
 import {
   User,
   Mail,
@@ -25,9 +27,11 @@ type CustomerProfile = {
 };
 
 const Page = () => {
+  const router = useRouter();
   const [edit, setEdit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState("");
 
   const [profile, setProfile] = useState<CustomerProfile>({
@@ -108,6 +112,22 @@ const Page = () => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true);
+      await api.post("/auth/logout");
+    } catch {
+    } finally {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("token");
+        sessionStorage.removeItem("token");
+        document.cookie = "token=; Max-Age=0; path=/;";
+        document.cookie = "auth_token=; Max-Age=0; path=/;";
+      }
+      router.replace("/home");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-linear-to-br from-indigo-600 via-purple-600 to-pink-500 p-6 flex justify-center items-center">
@@ -121,6 +141,7 @@ const Page = () => {
   return (
     <div className="min-h-screen bg-linear-to-br from-indigo-600 via-purple-600 to-pink-500 p-6 flex justify-center items-center">
       <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl p-8">
+        <Toaster position="top-center" richColors />
         {/* HEADER */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-800">User Profile</h1>
@@ -252,12 +273,19 @@ const Page = () => {
           <h2 className="text-lg font-semibold mb-3">Account Security</h2>
 
           <div className="flex gap-4 flex-wrap">
-            <button className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600">
+            <button
+              onClick={() => toast.info("work on progress")}
+              className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
+            >
               Change Password
             </button>
 
-            <button className="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900">
-              Logout
+            <button
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 disabled:opacity-60"
+            >
+              {loggingOut ? "Logging out..." : "Logout"}
             </button>
           </div>
         </div>

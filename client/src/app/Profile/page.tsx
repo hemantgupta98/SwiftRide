@@ -60,8 +60,8 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <p className="font-semibold text-gray-800">Hem Gupta</p>
-                <p className="text-sm text-gray-500">9867742834</p>
+                <p className="font-semibold text-gray-800">User Details</p>
+                <p className="text-sm text-gray-500"></p>
               </div>
             </div>
 
