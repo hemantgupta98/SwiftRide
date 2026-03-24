@@ -113,7 +113,7 @@ export default function AppShellRider({ children }: AppShellRiderProps) {
               <button
                 type="button"
                 aria-label="Open rider notifications"
-                onClick={() => router.push("/container/notification")}
+                onClick={() => router.push("/rider/notification")}
                 className="rounded-full border border-slate-200 bg-white p-2 text-slate-700 transition hover:bg-slate-100 hover:text-slate-950"
               >
                 <Bell className="size-5" />

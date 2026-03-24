@@ -9,6 +9,7 @@ import {
   updateRiderLiveLocation,
 } from "../modules/ride/ride.service.js";
 import { createNotification } from "../modules/notification/notification.service.js";
+import { createRideNotification } from "../modules/rideNotification/rideNotification.service.js";
 
 const riderSocketMap = new Map();
 const userSocketMap = new Map();
@@ -35,6 +36,24 @@ const clearRideTimeout = (rideId) => {
   }
 };
 
+const notifyRidersRideTimedOut = async (ride) => {
+  const requestedRiderIds = Array.isArray(ride?.requestedRiderIds)
+    ? ride.requestedRiderIds
+    : [];
+
+  await Promise.all(
+    requestedRiderIds.map((riderId) =>
+      createRideNotification({
+        riderId,
+        rideId: ride._id,
+        type: "RIDE_TIMEOUT",
+        title: "Ride Timed Out",
+        message: "Ride request timed out before confirmation.",
+      }),
+    ),
+  );
+};
+
 const emitRideNoRider = async (io, ride) => {
   emitToUser(io, ride.userId, "rideNoRider", {
     rideId: String(ride._id),
@@ -47,6 +66,8 @@ const emitRideNoRider = async (io, ride) => {
     title: "Ride Not Assigned",
     message: "No rider accepted your request. Please try booking again.",
   });
+
+  await notifyRidersRideTimedOut(ride);
 };
 
 const startRideRequestTimeout = (io, ride) => {
@@ -99,6 +120,19 @@ const dispatchRideRequestToNearbyRiders = async (ride) => {
     }
 
     io.to(String(rider._id)).emit("newRideRequest", requestPayload);
+
+    await createRideNotification({
+      riderId: rider._id,
+      rideId: ride._id,
+      type: "RIDE_COMES",
+      title: "New Ride Comes",
+      message: "New ride request received near your location.",
+      meta: {
+        distanceKm: ride.distanceKm,
+        fareAmount: ride.fareAmount,
+        estimatedMinutes: ride.estimatedMinutes,
+      },
+    });
   }
 
   startRideRequestTimeout(io, ride);
@@ -128,6 +162,14 @@ const handleRiderAcceptRide = async (io, socket, payload) => {
       status: acceptedRide.status,
     });
 
+    await createRideNotification({
+      riderId: acceptedRide.riderId,
+      rideId: acceptedRide._id,
+      type: "RIDE_ACCEPTED",
+      title: "Ride Accepted",
+      message: "You accepted this ride successfully.",
+    });
+
     emitToUser(io, acceptedRide.userId, "rideAccepted", {
       rideId: String(acceptedRide._id),
       riderId: String(acceptedRide.riderId),
@@ -155,6 +197,14 @@ const handleRiderAcceptRide = async (io, socket, payload) => {
         rideId: String(acceptedRide._id),
         acceptedBy: String(acceptedRide.riderId),
       });
+
+      await createRideNotification({
+        riderId: requestedRiderId,
+        rideId: acceptedRide._id,
+        type: "RIDE_TAKEN",
+        title: "Ride Taken",
+        message: "This ride was accepted by another rider.",
+      });
     }
   } catch (error) {
     socket.emit("rideAcceptFailed", {
@@ -175,6 +225,14 @@ const handleRiderDeclineRide = async (io, socket, payload) => {
     socket.emit("rideDeclined", {
       rideId: String(declinedRide._id),
       status: declinedRide.status,
+    });
+
+    await createRideNotification({
+      riderId,
+      rideId: declinedRide._id,
+      type: "RIDE_DECLINED",
+      title: "Ride Declined",
+      message: "You declined this ride request.",
     });
 
     const uniqueRequested = new Set(
