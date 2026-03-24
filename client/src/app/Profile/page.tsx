@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   User,
   HelpCircle,
-  Wallet,
   Clock,
   Shield,
   Gift,
@@ -26,7 +25,7 @@ type MenuItem = {
 
 const menuItems: MenuItem[] = [
   { title: "Help", icon: HelpCircle, href: "/container/help" },
-  { title: "Payment", icon: Wallet, href: "/container/payment" },
+
   { title: "My Rides", icon: Clock, href: "/container/Rides" },
   { title: "Safety", icon: Shield, href: "/container/saftey" },
   {

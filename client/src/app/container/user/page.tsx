@@ -1,7 +1,6 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   User,
   Mail,
@@ -9,39 +8,118 @@ import {
   MapPin,
   Pencil,
   Save,
-  Star,
-  Wallet,
-  Bike,
+  Loader2,
+  AtSign,
+  FileText,
 } from "lucide-react";
 import { Input } from "../../../components/ui/input";
+import { api } from "@/lib/api";
+
+type CustomerProfile = {
+  name: string;
+  email: string;
+  username: string;
+  contact: string;
+  address: string;
+  bio: string;
+};
 
 const Page = () => {
   const [edit, setEdit] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const [profile, setProfile] = useState({
-    name: "Hemant Gupta",
-    email: "hemant@email.com",
-    phone: "+91 9876543210",
-    location: "Jamshedpur, Jharkhand",
+  const [profile, setProfile] = useState<CustomerProfile>({
+    name: "",
+    email: "",
+    username: "",
+    contact: "",
+    address: "",
+    bio: "",
   });
 
-  const stats = {
-    rides: 24,
-    wallet: 350,
-    rating: 4.8,
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const response = await api.get("/auth/me");
+      const data = response?.data?.data;
+
+      if (!data || data.role !== "customer") {
+        setError("Customer profile not found. Please login as customer.");
+        return;
+      }
+
+      setProfile({
+        name: String(data.name || ""),
+        email: String(data.email || ""),
+        username: String(data.username || ""),
+        contact: String(data.contact || ""),
+        address: String(data.address || ""),
+        bio: String(data.bio || ""),
+      });
+    } catch {
+      setError("Unable to load user profile.");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
   };
 
-  const saveProfile = () => {
-    setEdit(false);
-    alert("Profile Updated Successfully!");
+  const saveProfile = async () => {
+    try {
+      setSaving(true);
+      setError("");
+
+      const payload = {
+        username: profile.username,
+        contact: profile.contact,
+        address: profile.address,
+        bio: profile.bio,
+      };
+
+      const response = await api.patch("/auth/me", payload);
+      const data = response?.data?.data;
+
+      if (data) {
+        setProfile((prev) => ({
+          ...prev,
+          username: String(data.username || ""),
+          contact: String(data.contact || ""),
+          address: String(data.address || ""),
+          bio: String(data.bio || ""),
+        }));
+      }
+
+      setEdit(false);
+      alert("Profile updated successfully!");
+    } catch {
+      setError("Failed to update profile.");
+    } finally {
+      setSaving(false);
+    }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-indigo-600 via-purple-600 to-pink-500 p-6 flex justify-center items-center">
+        <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl p-8 flex items-center justify-center gap-2 text-gray-700">
+          <Loader2 className="animate-spin" size={18} /> Loading profile...
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-6 flex justify-center items-center">
+    <div className="min-h-screen bg-linear-to-br from-indigo-600 via-purple-600 to-pink-500 p-6 flex justify-center items-center">
       <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl p-8">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-6">
@@ -56,13 +134,21 @@ const Page = () => {
             </button>
           ) : (
             <button
+              disabled={saving}
               onClick={saveProfile}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-60"
             >
-              <Save size={16} /> Save
+              {saving ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : (
+                <Save size={16} />
+              )}
+              {saving ? "Saving..." : "Save"}
             </button>
           )}
         </div>
+
+        {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
         {/* PROFILE SECTION */}
         <div className="grid md:grid-cols-3 gap-6">
@@ -75,10 +161,6 @@ const Page = () => {
 
             <h2 className="text-xl font-semibold mt-3">{profile.name}</h2>
             <p className="text-gray-500 text-sm">Premium User</p>
-
-            <button className="mt-4 text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
-              Change Photo
-            </button>
           </div>
 
           {/* RIGHT DETAILS */}
@@ -87,7 +169,7 @@ const Page = () => {
             <div className="flex items-center gap-3">
               <User className="text-indigo-600" />
               <Input
-                disabled={!edit}
+                disabled
                 name="name"
                 value={profile.name}
                 onChange={handleChange}
@@ -99,10 +181,23 @@ const Page = () => {
             <div className="flex items-center gap-3">
               <Mail className="text-indigo-600" />
               <Input
-                disabled={!edit}
+                disabled
                 name="email"
                 value={profile.email}
                 onChange={handleChange}
+                className="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+
+            {/* USERNAME */}
+            <div className="flex items-center gap-3">
+              <AtSign className="text-indigo-600" />
+              <Input
+                disabled={!edit}
+                name="username"
+                value={profile.username}
+                onChange={handleChange}
+                placeholder="Add username"
                 className="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-400"
               />
             </div>
@@ -112,9 +207,10 @@ const Page = () => {
               <Phone className="text-indigo-600" />
               <Input
                 disabled={!edit}
-                name="phone"
-                value={profile.phone}
+                name="contact"
+                value={profile.contact}
                 onChange={handleChange}
+                placeholder="Add phone number"
                 className="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-400"
               />
             </div>
@@ -124,39 +220,30 @@ const Page = () => {
               <MapPin className="text-indigo-600" />
               <Input
                 disabled={!edit}
-                name="location"
-                value={profile.location}
+                name="address"
+                value={profile.address}
                 onChange={handleChange}
+                placeholder="Add address"
                 className="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-400"
               />
             </div>
-          </div>
-        </div>
 
-        {/* USER STATS */}
-        <div className="grid md:grid-cols-3 gap-4 mt-8">
-          <div className="bg-indigo-50 p-4 rounded-xl flex items-center gap-3">
-            <Bike className="text-indigo-600" />
-            <div>
-              <p className="text-sm text-gray-500">Total Rides</p>
-              <h3 className="font-bold text-lg">{stats.rides}</h3>
+            {/* BIO */}
+            <div className="flex items-center gap-3">
+              <FileText className="text-indigo-600" />
+              <Input
+                disabled={!edit}
+                name="bio"
+                value={profile.bio}
+                onChange={handleChange}
+                placeholder="Add short bio"
+                className="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-400"
+              />
             </div>
-          </div>
 
-          <div className="bg-green-50 p-4 rounded-xl flex items-center gap-3">
-            <Wallet className="text-green-600" />
-            <div>
-              <p className="text-sm text-gray-500">Wallet Balance</p>
-              <h3 className="font-bold text-lg">₹{stats.wallet}</h3>
-            </div>
-          </div>
-
-          <div className="bg-yellow-50 p-4 rounded-xl flex items-center gap-3">
-            <Star className="text-yellow-500" />
-            <div>
-              <p className="text-sm text-gray-500">Rating</p>
-              <h3 className="font-bold text-lg">{stats.rating}</h3>
-            </div>
+            <p className="text-xs text-gray-500">
+              Name and email come from signup data and cannot be edited.
+            </p>
           </div>
         </div>
 
