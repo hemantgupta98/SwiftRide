@@ -104,9 +104,15 @@ const Page = () => {
     };
   }, []);
 
-  const totalFare = useMemo(
-    () => rides.reduce((acc, ride) => acc + ride.fare, 0),
+  const completedRides = useMemo(
+    () =>
+      rides.filter((ride) => ride.status.trim().toLowerCase() === "completed"),
     [rides],
+  );
+
+  const totalFare = useMemo(
+    () => completedRides.reduce((acc, ride) => acc + ride.fare, 0),
+    [completedRides],
   );
 
   return (
@@ -119,7 +125,7 @@ const Page = () => {
           </h1>
 
           <div className="bg-orange-500 text-white px-6 py-2 rounded-xl shadow-lg font-semibold">
-            Total Rides : {rides.length}
+            Total Rides : {completedRides.length}
           </div>
         </div>
         <div className="bg-white shadow-xl rounded-xl p-6 border mb-10">
@@ -133,7 +139,7 @@ const Page = () => {
         {/* Ride Cards */}
         {!isLoading && (
           <div className="grid md:grid-cols-2 gap-6">
-            {rides.map((ride) => (
+            {completedRides.map((ride) => (
               <div
                 key={ride.id}
                 className="bg-white rounded-2xl shadow-lg p-6 border border-orange-100 hover:shadow-2xl transition"
@@ -199,7 +205,7 @@ const Page = () => {
         )}
 
         {/* Empty state */}
-        {!isLoading && rides.length === 0 && (
+        {!isLoading && completedRides.length === 0 && (
           <div className="text-center mt-20">
             <h2 className="text-xl font-semibold text-gray-600">
               No rides completed yet
