@@ -29,7 +29,7 @@ export default function LogoutPage() {
       localStorage.removeItem("token");
       sessionStorage.removeItem("token");
       document.cookie = "token=; Max-Age=0; path=/";
-      router.push("/home");
+      router.push("/empty");
     }
   };
 
