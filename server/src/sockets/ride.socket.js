@@ -290,7 +290,7 @@ const registerRideSocketHandlers = (io, socket) => {
       }
     } catch (error) {
       socket.emit("riderRegistrationFailed", {
-        message: error.message || "Failed to register rider",
+        message: error.message || "Failed to the register rider",
       });
     }
   });
