@@ -34,7 +34,7 @@ const menuItems: MenuItem[] = [
     icon: Gift,
     href: "/container/refer",
   },
-  { title: "My Rewards", icon: Award, href: "/container/rewards" },
+  { title: "My Reward's", icon: Award, href: "/container/rewards" },
   { title: "Power Pass", icon: Ticket, href: "/container/pass" },
   { title: "Notifications", icon: Bell, href: "/container/notification" },
 ];
