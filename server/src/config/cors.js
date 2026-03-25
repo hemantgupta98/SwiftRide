@@ -8,15 +8,9 @@ const configuredOrigins = [
     .filter(Boolean),
 
   // ✅ Local development origins (both localhost and 127.0.0.1)
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
-  "http://localhost:3001",
-  "http://127.0.0.1:3001",
-  "http://localhost:3002",
-  "http://127.0.0.1:3002",
+  "https://swift-ride-seven.vercel.app/",
 ].filter(Boolean);
 
-// إزالة duplicates
 export const allowedOrigins = [...new Set(configuredOrigins)];
 
 const corsOption = {

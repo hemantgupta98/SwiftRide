@@ -77,7 +77,8 @@ router.get(
   "/google/callback",
   (req, res, next) => {
     if (!isGoogleConfigured) {
-      const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://localhost:3000";
+      const FRONTEND_URL =
+        process.env.FRONTEND_URL ?? "https://swift-ride-seven.vercel.app/";
       return res.redirect(`${FRONTEND_URL}/login?oauth=google_not_configured`);
     }
 
@@ -85,10 +86,11 @@ router.get(
   },
   passport.authenticate("google", {
     session: false,
-    failureRedirect: `${process.env.FRONTEND_URL ?? "http://localhost:3000"}/authCustomer?oauth=failed`,
+    failureRedirect: `${process.env.FRONTEND_URL ?? "https://swift-ride-seven.vercel.app/"}/authCustomer?oauth=failed`,
   }),
   (req, res) => {
-    const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://localhost:3000";
+    const FRONTEND_URL =
+      process.env.FRONTEND_URL ?? "https://swift-ride-seven.vercel.app/";
     const mode = normalizeAuthMode(req.query?.state);
     const redirectPath = getOAuthRedirectPathByMode(mode);
 
