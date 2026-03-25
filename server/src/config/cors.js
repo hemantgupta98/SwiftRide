@@ -1,5 +1,8 @@
 import cors from "cors";
 
+const normalizeOrigin = (value) =>
+  typeof value === "string" ? value.trim().replace(/\/$/, "") : "";
+
 const configuredOrigins = [
   process.env.FRONTEND_URL,
   ...(process.env.FRONTEND_URLS || "")
@@ -7,11 +10,18 @@ const configuredOrigins = [
     .map((item) => item.trim())
     .filter(Boolean),
 
-  // ✅ Local development origins (both localhost and 127.0.0.1)
-  "https://swift-ride-seven.vercel.app/",
+  "https://swift-ride-seven.vercel.app",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3001",
+  "http://localhost:3002",
+  "http://127.0.0.1:3002",
 ].filter(Boolean);
 
-export const allowedOrigins = [...new Set(configuredOrigins)];
+export const allowedOrigins = [
+  ...new Set(configuredOrigins.map(normalizeOrigin).filter(Boolean)),
+];
 
 const corsOption = {
   origin: (origin, callback) => {
@@ -23,7 +33,7 @@ const corsOption = {
     }
 
     // ✅ Allow only whitelisted origins
-    if (allowedOrigins.includes(origin)) {
+    if (allowedOrigins.includes(normalizeOrigin(origin))) {
       return callback(null, true);
     }
 
@@ -32,9 +42,9 @@ const corsOption = {
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
 
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
 
-  credentials: true, // ✅ Important for cookies/auth
+  credentials: true,
 
   optionsSuccessStatus: 200,
 };

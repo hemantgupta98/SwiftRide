@@ -4,7 +4,10 @@ import { googleDB } from "./auth.model.js";
 
 const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } = process.env;
 const API_BASE_URL = (
-  process.env.API_BASE_URL ?? "https://swift-ride-seven.vercel.app/"
+  process.env.API_BASE_URL ??
+  process.env.BACKEND_URL ??
+  process.env.RENDER_EXTERNAL_URL ??
+  "https://swiftride-gvce.onrender.com"
 ).replace(/\/$/, "");
 
 if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
