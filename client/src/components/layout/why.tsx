@@ -8,7 +8,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 
-export default function SafetySectionPage() {
+export default function Why() {
   return (
     <main className="bg-white text-gray-900">
       {/* ================= SAFETY SECTION ================= */}

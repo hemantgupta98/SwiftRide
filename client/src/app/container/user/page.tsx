@@ -113,6 +113,9 @@ const Page = () => {
   };
 
   const handleLogout = async () => {
+    const isConfirmed = window.confirm("Are you sure you want to logout?");
+    if (!isConfirmed) return;
+
     try {
       setLoggingOut(true);
       await api.post("/auth/logout");

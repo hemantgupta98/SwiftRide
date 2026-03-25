@@ -3,7 +3,7 @@ import Image from "next/image";
 
 import { Facebook, Twitter, Instagram, Linkedin, Mail } from "lucide-react";
 
-export default function Home() {
+export default function Footer() {
   return (
     <main className="min-h-screen  bg-[#0B1B2B] text-gray-300 flex flex-col justify-between">
       {/* Newsletter Section */}

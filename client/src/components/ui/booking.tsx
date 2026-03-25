@@ -10,7 +10,7 @@ import {
   Leaf,
 } from "lucide-react";
 
-export default function HomePage() {
+export default function Booking() {
   return (
     <main className="relative min-h-screen bg-[#0B1220] overflow-hidden text-white">
       {/* Background grid */}

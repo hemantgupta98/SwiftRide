@@ -9,11 +9,11 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-export default function ServicesPage() {
+export default function Service() {
   return (
     <main className="bg-white text-gray-900">
       {/* ================= SERVICES SECTION ================= */}
-      <section className="max-w-7xl mx-auto px-6 py-20">
+      <section id="service" className="max-w-7xl mx-auto px-6 py-20">
         {/* Header */}
         <div className="max-w-3xl">
           <span className="inline-block mb-4 px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-600">

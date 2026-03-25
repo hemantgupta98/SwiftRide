@@ -2,11 +2,11 @@
 
 import { CheckCircle, ArrowRight } from "lucide-react";
 
-export default function StepsPage() {
+export default function Work() {
   return (
     <main className="bg-white text-gray-900">
       {/* SECTION */}
-      <section className="max-w-7xl mx-auto px-6 py-20">
+      <section id="how-it-works" className="max-w-7xl mx-auto px-6 py-20">
         {/* Heading */}
         <div className="text-center max-w-3xl mx-auto">
           <h2 className="text-4xl font-bold">
@@ -114,7 +114,7 @@ function Step({
       </div>
 
       {/* Image */}
-      <div className="rounded-xl overflow-hidden bg-gray-100 aspect-[4/3]">
+      <div className="aspect-4/3 rounded-xl overflow-hidden bg-gray-100">
         <img src={img} alt={title} className="w-full h-full object-cover" />
       </div>
 

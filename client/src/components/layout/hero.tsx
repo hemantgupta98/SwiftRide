@@ -1,7 +1,10 @@
+"use client";
+import { useRouter } from "next/navigation";
 export default function Hero() {
+  const router = useRouter();
   return (
     <section className="text-center px-6 py-24">
-      <span className="inline-block border border-green-300 text-green-400 px-4 py-1 rounded-full text-sm text-primary mb-6 bg-green-100">
+      <span className="inline-block border border-green-300 px-4 py-1 rounded-full text-sm text-primary mb-6 bg-green-100">
         Platform Preview
       </span>
 
@@ -15,7 +18,10 @@ export default function Hero() {
       </p>
 
       <div className="mt-10 flex justify-center gap-4">
-        <button className="px-4 py-2 bg-green-500 text-white rounded-xl shadow-2xl hover:bg-green-600 transition">
+        <button
+          onClick={() => router.push("/authCustomer")}
+          className="px-4 py-2 bg-green-500 text-white rounded-xl shadow-2xl hover:bg-green-600 transition"
+        >
           Get Start Now
         </button>
         <button className="border px-6 py-3 rounded-xl">Learn More</button>
