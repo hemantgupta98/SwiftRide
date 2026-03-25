@@ -135,6 +135,10 @@ export default function CustomerSignupPage() {
     }
     resetRider();
   };
+  const loginWithGoogle = () => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+    window.location.href = `${API_URL}/api/auth/google`;
+  };
 
   const router = useRouter();
   return (
@@ -397,7 +401,7 @@ export default function CustomerSignupPage() {
 
           {/* Social */}
           <div className="grid grid-cols-1 gap-4">
-            <SocialButton label="Google" />
+            <SocialButton label="Google" onClick={loginWithGoogle} />
           </div>
 
           {/* Login */}
