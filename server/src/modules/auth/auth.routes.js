@@ -21,6 +21,11 @@ const router = express.Router();
 const isGoogleConfigured = Boolean(
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
 );
+
+const normalizeAuthMode = (value) => (value === "rider" ? "rider" : "customer");
+
+const getOAuthRedirectPathByMode = (mode) =>
+  mode === "rider" ? "/rider/home" : "/CuRider";
 //all are set
 
 // Email / password auth
@@ -59,7 +64,13 @@ router.get(
 
     next();
   },
-  passport.authenticate("google", { scope: ["profile", "email"] }),
+  (req, res, next) => {
+    const mode = normalizeAuthMode(req.query?.mode);
+    return passport.authenticate("google", {
+      scope: ["profile", "email"],
+      state: mode,
+    })(req, res, next);
+  },
 );
 
 router.get(
@@ -74,30 +85,40 @@ router.get(
   },
   passport.authenticate("google", {
     session: false,
-    failureRedirect: `${process.env.FRONTEND_URL ?? "http://localhost:3000"}/login?oauth=failed`,
+    failureRedirect: `${process.env.FRONTEND_URL ?? "http://localhost:3000"}/authCustomer?oauth=failed`,
   }),
   (req, res) => {
     const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://localhost:3000";
+    const mode = normalizeAuthMode(req.query?.state);
+    const redirectPath = getOAuthRedirectPathByMode(mode);
 
     try {
       const user = req.user;
       if (!user) {
-        return res.redirect(`${FRONTEND_URL}/login?oauth=missing_user`);
+        return res.redirect(
+          `${FRONTEND_URL}/authCustomer?oauth=missing_user&mode=${mode}`,
+        );
       }
 
       const secret = process.env.JWT_TOKEN;
       if (!secret) {
         console.error("JWT_SECRET is missing");
-        return res.redirect(`${FRONTEND_URL}/login?oauth=server_misconfig`);
+        return res.redirect(
+          `${FRONTEND_URL}/authCustomer?oauth=server_misconfig`,
+        );
       }
 
       const token = jwt.sign({ id: user._id, email: user.email }, secret, {
         expiresIn: "7d",
       });
 
-      return res.redirect(`${FRONTEND_URL}/dashboard/?token=${token}`);
+      return res.redirect(
+        `${FRONTEND_URL}${redirectPath}?token=${token}&mode=${mode}`,
+      );
     } catch (err) {
-      return res.redirect(`${FRONTEND_URL}/login?oauth=error`);
+      return res.redirect(
+        `${FRONTEND_URL}/authCustomer?oauth=error&mode=${mode}`,
+      );
     }
   },
 );

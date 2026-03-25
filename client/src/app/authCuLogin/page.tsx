@@ -116,6 +116,12 @@ export default function CustomerSignupPage() {
     resetRider();
   };
 
+  const loginWithGoogle = () => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+    const params = new URLSearchParams({ mode });
+    window.location.href = `${API_URL}/api/auth/google?${params.toString()}`;
+  };
+
   const router = useRouter();
   return (
     <main className="min-h-screen bg-linear-to-br from-[#0B1220] via-[#0E1A2F] to-[#08101E] flex flex-col items-center justify-between text-white relative">
@@ -277,7 +283,7 @@ export default function CustomerSignupPage() {
 
           {/* Social */}
           <div className="grid grid-col-1 gap-4">
-            <SocialButton label="Google" />
+            <SocialButton label="Google" onClick={loginWithGoogle} />
           </div>
 
           {/* Login */}

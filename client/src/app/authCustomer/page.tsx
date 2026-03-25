@@ -137,7 +137,8 @@ export default function CustomerSignupPage() {
   };
   const loginWithGoogle = () => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
-    window.location.href = `${API_URL}/api/auth/google`;
+    const params = new URLSearchParams({ mode });
+    window.location.href = `${API_URL}/api/auth/google?${params.toString()}`;
   };
 
   const router = useRouter();
