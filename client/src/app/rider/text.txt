@@ -2,8 +2,7 @@
 
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
-import type { DivIcon } from "leaflet";
-
+import { divIcon } from "leaflet";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
@@ -43,9 +42,14 @@ const EARNINGS_STORAGE_KEY = "rider_earnings_history";
 const ONLINE_HISTORY_STORAGE_KEY = "rider_online_history";
 const ONLINE_ACTIVE_START_STORAGE_KEY = "rider_online_active_start";
 
+const riderMarkerIcon = divIcon({
+  html: '<span style="display:block;width:18px;height:18px;background:#22c55e;border:3px solid #ffffff;border-radius:9999px;box-shadow:0 0 0 2px #15803d;"></span>',
+  className: "",
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+
 export default function Dashboard() {
-  const [isClient, setIsClient] = useState(false);
-  const [riderIcon, setRiderIcon] = useState<DivIcon | null>(null);
   const [online, setOnline] = useState(false);
   const [liveCoords, setLiveCoords] = useState<[number, number] | null>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -62,21 +66,6 @@ export default function Dashboard() {
     () => liveCoords ?? [23.3441, 85.3096],
     [liveCoords],
   );
-
-  useEffect(() => {
-    setIsClient(true);
-
-    import("leaflet").then((L) => {
-      const icon = L.divIcon({
-        html: '<span style="display:block;width:18px;height:18px;background:#22c55e;border:3px solid #ffffff;border-radius:9999px;box-shadow:0 0 0 2px #15803d;"></span>',
-        className: "",
-        iconSize: [18, 18],
-        iconAnchor: [9, 9],
-      });
-
-      setRiderIcon(icon);
-    });
-  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -213,6 +202,7 @@ export default function Dashboard() {
     }
 
     if (!navigator.geolocation) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocationError("Geolocation is not supported by your browser.");
       handleGoOffline();
       return;
@@ -259,7 +249,7 @@ export default function Dashboard() {
     return () => {
       stopTracking();
     };
-  }, [online, handleGoOffline, isClient]);
+  }, [online, handleGoOffline]);
 
   const todayDateString = new Date().toDateString();
 
@@ -521,7 +511,7 @@ export default function Dashboard() {
           </div>
 
           <div className="relative h-90 overflow-hidden rounded-xl border border-gray-200 bg-gray-100">
-            {online && liveCoords && riderIcon ? (
+            {online && liveCoords ? (
               <MapContainer
                 key={`${liveCoords[0]}-${liveCoords[1]}`}
                 center={mapCenter}
@@ -533,7 +523,7 @@ export default function Dashboard() {
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
 
-                <Marker position={liveCoords} icon={riderIcon}>
+                <Marker position={liveCoords} icon={riderMarkerIcon}>
                   <Popup>You are here</Popup>
                 </Marker>
               </MapContainer>
