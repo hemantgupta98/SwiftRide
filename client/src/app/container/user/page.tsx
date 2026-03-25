@@ -127,7 +127,7 @@ const Page = () => {
         document.cookie = "token=; Max-Age=0; path=/;";
         document.cookie = "auth_token=; Max-Age=0; path=/;";
       }
-      router.replace("/home");
+      router.replace("/empty");
     }
   };
 

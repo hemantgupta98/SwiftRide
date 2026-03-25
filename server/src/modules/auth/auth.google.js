@@ -10,6 +10,10 @@ const API_BASE_URL = (
   "https://swiftride-gvce.onrender.com"
 ).replace(/\/$/, "");
 
+const GOOGLE_CALLBACK_URL = (
+  process.env.GOOGLE_CALLBACK_URL ?? `${API_BASE_URL}/api/auth/google/callback`
+).replace(/\/$/, "");
+
 if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
   console.warn(
     "Google OAuth not configured: missing GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET",
@@ -20,7 +24,7 @@ if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
       {
         clientID: GOOGLE_CLIENT_ID,
         clientSecret: GOOGLE_CLIENT_SECRET,
-        callbackURL: `${API_BASE_URL}/api/auth/google/callback`,
+        callbackURL: GOOGLE_CALLBACK_URL,
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
