@@ -78,7 +78,9 @@ export default function CustomerSignupPage() {
 
   const onSubmitRider: SubmitHandler<RiderData> = async (data) => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL ||
+        "https://swiftride-gvce.onrender.com";
       const res = await fetch(`${apiUrl}/api/auth/riderlogin`, {
         method: "POST",
         headers: {
@@ -117,7 +119,8 @@ export default function CustomerSignupPage() {
   };
 
   const loginWithGoogle = () => {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+    const API_URL =
+      process.env.NEXT_PUBLIC_API_URL ?? "https://swiftride-gvce.onrender.com";
     const params = new URLSearchParams({ mode });
     window.location.href = `${API_URL}/api/auth/google?${params.toString()}`;
   };
