@@ -1,3 +1,4 @@
+"use client";
 import Navbar from "../../components/layout/navbar";
 import Hero from "../../components/layout/hero";
 import AppPreview from "../../components/ui/screen";
