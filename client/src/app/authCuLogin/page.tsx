@@ -6,6 +6,7 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { Mail, Lock, ChevronLeft } from "lucide-react";
 import { forwardRef, useState } from "react";
 import { Toaster, toast } from "sonner";
+import SocialButton from "@/src/components/ui/socialButton";
 
 type InputData = {
   email: string;
@@ -275,8 +276,7 @@ export default function CustomerSignupPage() {
           </div>
 
           {/* Social */}
-          <div className="grid grid-cols-2 gap-4">
-            <SocialButton label="Google" />
+          <div className="grid grid-col-1 gap-4">
             <SocialButton label="Google" />
           </div>
 
@@ -352,12 +352,3 @@ const Input = forwardRef<
 });
 
 Input.displayName = "Input";
-
-function SocialButton({ label }: { label: string }) {
-  return (
-    <button className="border rounded-lg py-3 flex items-center justify-center gap-2 text-sm hover:bg-gray-50 transition">
-      <div className="w-5 h-5 bg-gray-300 rounded-sm" />
-      {label}
-    </button>
-  );
-}
