@@ -108,7 +108,7 @@ export default function Page() {
 
     const onConnect = () => {
       if (userId) {
-        socket.emit("registerUser", { userId });
+        socket.emit("registerUserIs", { userId });
       }
     };
 
