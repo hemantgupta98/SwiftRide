@@ -104,8 +104,6 @@ export default function Page() {
   };
 
   useEffect(() => {
-    socket.connect();
-
     const onConnect = () => {
       if (userId) {
         socket.emit("registerUserIs", { userId });
@@ -138,6 +136,12 @@ export default function Page() {
     socket.on("connect", onConnect);
     socket.on("rideAccepted", onRideAccepted);
     socket.on("rideNoRider", onRideNoRider);
+
+    socket.connect();
+
+    if (socket.connected) {
+      onConnect();
+    }
 
     return () => {
       socket.off("connect", onConnect);

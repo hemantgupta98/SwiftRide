@@ -186,8 +186,6 @@ export default function RideControlPage() {
   }, []);
 
   useEffect(() => {
-    socket.connect();
-
     const sendLiveLocation = () => {
       if (
         !riderId ||
@@ -307,6 +305,12 @@ export default function RideControlPage() {
     socket.on("connect_error", () => {
       setServerMessage("Socket connection failed. Check backend URL/CORS.");
     });
+
+    socket.connect();
+
+    if (socket.connected) {
+      onConnect();
+    }
 
     return () => {
       socket.off("connect", onConnect);
