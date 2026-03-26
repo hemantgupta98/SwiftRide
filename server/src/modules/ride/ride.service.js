@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { Rider, User, googleDB } from "../auth/auth.model.js";
 import Ride from "./ride.model.js";
 
-const RIDE_REQUEST_TIMEOUT_MS = 12000;
+const RIDE_REQUEST_TIMEOUT_MS = 30000;
 const REWARD_MESSAGE = "You get 2 days for free rides";
 const REWARD_MILESTONES = [5, 10, 15, 20];
 
@@ -171,25 +171,52 @@ const findNearbyOnlineRiders = async ({
 };
 
 const createRideBooking = async ({
+  customerId,
   userId,
+  pickupLocation,
+  dropLocation,
   pickupCoordinates,
   dropCoordinates,
+  distance,
+  estimatedTime,
+  fare,
 }) => {
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    throw new Error("Invalid userId");
+  const resolvedCustomerId = customerId || userId;
+
+  if (!mongoose.Types.ObjectId.isValid(resolvedCustomerId)) {
+    throw new Error("Invalid customerId");
   }
 
-  const pickup = assertCoordinates(pickupCoordinates);
-  const drop = assertCoordinates(dropCoordinates);
-  const { distanceKm, fareAmount, estimatedMinutes } = estimateRideMetrics(
-    pickup,
-    drop,
-  );
+  const pickupSource = pickupLocation?.coordinates || pickupCoordinates;
+  const dropSource = dropLocation?.coordinates || dropCoordinates;
+
+  const pickup = assertCoordinates(pickupSource);
+  const drop = assertCoordinates(dropSource);
+
+  const hasProvidedMetrics =
+    Number.isFinite(Number(distance)) &&
+    Number(distance) >= 0 &&
+    Number.isFinite(Number(fare)) &&
+    Number(fare) >= 0 &&
+    Number.isFinite(Number(estimatedTime)) &&
+    Number(estimatedTime) >= 1;
+
+  const calculatedMetrics = estimateRideMetrics(pickup, drop);
+
+  const distanceKm = hasProvidedMetrics
+    ? Number(Number(distance).toFixed(2))
+    : calculatedMetrics.distanceKm;
+  const fareAmount = hasProvidedMetrics
+    ? Number(Number(fare).toFixed(2))
+    : calculatedMetrics.fareAmount;
+  const estimatedMinutes = hasProvidedMetrics
+    ? Math.ceil(Number(estimatedTime))
+    : calculatedMetrics.estimatedMinutes;
 
   return Ride.create({
-    userId,
-    pickup: toGeoPoint(pickup, "Pickup"),
-    drop: toGeoPoint(drop, "Drop"),
+    userId: resolvedCustomerId,
+    pickup: toGeoPoint(pickup, pickupLocation?.label || "Pickup"),
+    drop: toGeoPoint(drop, dropLocation?.label || "Drop"),
     distanceKm,
     fareAmount,
     estimatedMinutes,

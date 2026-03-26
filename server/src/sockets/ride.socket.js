@@ -103,6 +103,18 @@ const dispatchRideRequestToNearbyRiders = async (ride) => {
 
   const requestPayload = {
     rideId: String(ride._id),
+    customerId: String(ride.userId),
+    pickupLocation: {
+      coordinates: ride.pickup.coordinates,
+      label: ride.pickup.label,
+    },
+    dropLocation: {
+      coordinates: ride.drop.coordinates,
+      label: ride.drop.label,
+    },
+    distance: ride.distanceKm,
+    fare: ride.fareAmount,
+    estimatedTime: ride.estimatedMinutes,
     pickup: ride.pickup,
     drop: ride.drop,
     distanceKm: ride.distanceKm,
@@ -173,12 +185,23 @@ const handleRiderAcceptRide = async (io, socket, payload) => {
     emitToUser(io, acceptedRide.userId, "rideAccepted", {
       rideId: String(acceptedRide._id),
       riderId: String(acceptedRide.riderId),
+      pickupLocation: {
+        coordinates: acceptedRide.pickup.coordinates,
+        label: acceptedRide.pickup.label,
+      },
+      dropLocation: {
+        coordinates: acceptedRide.drop.coordinates,
+        label: acceptedRide.drop.label,
+      },
+      distance: acceptedRide.distanceKm,
+      fare: acceptedRide.fareAmount,
+      estimatedTime: acceptedRide.estimatedMinutes,
       pickup: acceptedRide.pickup,
       drop: acceptedRide.drop,
       distanceKm: acceptedRide.distanceKm,
       fareAmount: acceptedRide.fareAmount,
       estimatedMinutes: acceptedRide.estimatedMinutes,
-      message: "Your ride has been accepted",
+      message: "Your ride is accepted. Rider is coming!",
     });
 
     await createNotification({
@@ -332,6 +355,9 @@ const registerRideSocketHandlers = (io, socket) => {
   });
 
   socket.on("acceptRide", (payload) =>
+    handleRiderAcceptRide(io, socket, payload),
+  );
+  socket.on("rideAccepted", (payload) =>
     handleRiderAcceptRide(io, socket, payload),
   );
   socket.on("declineRide", (payload) =>

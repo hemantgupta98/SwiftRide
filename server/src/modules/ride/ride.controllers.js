@@ -71,23 +71,56 @@ const findNearbyRidersController = async (req, res) => {
 
 const bookRideController = async (req, res) => {
   try {
-    const { userId, pickup, drop } = req.body;
+    const {
+      customerId,
+      userId,
+      pickupLocation,
+      dropLocation,
+      pickup,
+      drop,
+      distance,
+      estimatedTime,
+      fare,
+    } = req.body;
 
-    if (!userId || !pickup || !drop) {
+    const resolvedCustomerId = customerId || userId;
+
+    const resolvedPickup =
+      pickupLocation ||
+      (pickup
+        ? {
+            coordinates: [pickup.lng, pickup.lat],
+            label: pickup.label || "Pickup",
+          }
+        : null);
+
+    const resolvedDrop =
+      dropLocation ||
+      (drop
+        ? {
+            coordinates: [drop.lng, drop.lat],
+            label: drop.label || "Drop",
+          }
+        : null);
+
+    if (!resolvedCustomerId || !resolvedPickup || !resolvedDrop) {
       return res.status(400).json({
         success: false,
-        message: "userId, pickup and drop are required",
+        message: "customerId, pickupLocation and dropLocation are required",
       });
     }
 
     const ride = await createRideBooking({
-      userId,
-      pickupCoordinates: [pickup.lng, pickup.lat],
-      dropCoordinates: [drop.lng, drop.lat],
+      customerId: resolvedCustomerId,
+      pickupLocation: resolvedPickup,
+      dropLocation: resolvedDrop,
+      distance,
+      estimatedTime,
+      fare,
     });
 
     await createNotification({
-      userId,
+      userId: resolvedCustomerId,
       type: "RIDE_BOOKED",
       title: "Ride Booked",
       message: "Your ride request has been created successfully.",

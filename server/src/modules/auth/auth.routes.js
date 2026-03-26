@@ -79,7 +79,9 @@ router.get(
     if (!isGoogleConfigured) {
       const FRONTEND_URL =
         process.env.FRONTEND_URL ?? "https://swift-ride-seven.vercel.app/";
-      return res.redirect(`${FRONTEND_URL}/login?oauth=google_not_configured`);
+      return res.redirect(
+        `${FRONTEND_URL}/authCuLogin?oauth=google_not_configured`,
+      );
     }
 
     next();

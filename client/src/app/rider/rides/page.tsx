@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Clock, Navigation, DollarSign, Star, TrendingUp } from "lucide-react";
 import { socket } from "../../../../lib/socket";
+import { Toaster, toast } from "sonner";
 
 const EARNINGS_STORAGE_KEY = "rider_earnings_history";
 
@@ -18,6 +20,18 @@ type EarningsEntry = {
 
 type RideRequestPayload = {
   rideId: string;
+  customerId?: string;
+  pickupLocation?: {
+    coordinates: [number, number];
+    label?: string;
+  };
+  dropLocation?: {
+    coordinates: [number, number];
+    label?: string;
+  };
+  distance?: number;
+  fare?: number;
+  estimatedTime?: number;
   pickup: {
     coordinates: [number, number];
     label?: string;
@@ -32,6 +46,8 @@ type RideRequestPayload = {
   timeoutSeconds: number;
   message?: string;
 };
+
+const RIDER_ACTIVE_RIDE_STORAGE_KEY = "rider_active_navigation_ride";
 
 const parseUserIdFromToken = (token: string) => {
   try {
@@ -61,16 +77,37 @@ const formatCoordinates = (
 };
 
 export default function RideControlPage() {
+  const router = useRouter();
   const [activeRide, setActiveRide] = useState<RideRequestPayload | null>(null);
   const [ongoingRide, setOngoingRide] = useState<RideRequestPayload | null>(
     null,
   );
   const [countdown, setCountdown] = useState<number>(0);
+  const [isAcceptingRide, setIsAcceptingRide] = useState(false);
   const [serverMessage, setServerMessage] = useState<string>(
     "Waiting for new ride request",
   );
   const [earningsHistory, setEarningsHistory] = useState<EarningsEntry[]>([]);
   const activeRideRef = useRef<RideRequestPayload | null>(null);
+
+  const normalizeRidePayload = (payload: RideRequestPayload) => {
+    const pickupLocation = payload.pickupLocation || payload.pickup;
+    const dropLocation = payload.dropLocation || payload.drop;
+
+    return {
+      ...payload,
+      pickup: pickupLocation,
+      drop: dropLocation,
+      pickupLocation,
+      dropLocation,
+      distanceKm: Number(payload.distance ?? payload.distanceKm ?? 0),
+      fareAmount: Number(payload.fare ?? payload.fareAmount ?? 0),
+      estimatedMinutes: Number(
+        payload.estimatedTime ?? payload.estimatedMinutes ?? 0,
+      ),
+      timeoutSeconds: Number(payload.timeoutSeconds || 30),
+    };
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -204,37 +241,54 @@ export default function RideControlPage() {
     };
 
     const onNewRideRequest = (payload: RideRequestPayload) => {
-      setActiveRide(payload);
-      setCountdown(payload.timeoutSeconds || 12);
+      const normalizedPayload = normalizeRidePayload(payload);
+      setActiveRide(normalizedPayload);
+      setCountdown(normalizedPayload.timeoutSeconds || 30);
       setServerMessage(payload.message || "New ride request received");
+      setIsAcceptingRide(false);
+      toast("New ride request received");
     };
 
     const onRideTaken = () => {
       setServerMessage("Ride was accepted by another rider");
       setActiveRide(null);
       setCountdown(0);
+      setIsAcceptingRide(false);
+      toast.info("Ride already accepted by another rider.");
     };
 
     const onRideAcceptSuccess = () => {
       if (activeRideRef.current) {
-        setOngoingRide(activeRideRef.current);
+        const acceptedRide = activeRideRef.current;
+        setOngoingRide(acceptedRide);
+
+        localStorage.setItem(
+          RIDER_ACTIVE_RIDE_STORAGE_KEY,
+          JSON.stringify(acceptedRide),
+        );
       }
 
       setServerMessage("Ride accepted. Complete the ride after drop-off.");
       setActiveRide(null);
       setCountdown(0);
+      setIsAcceptingRide(false);
+      toast.success("Ride accepted. Opening navigation.");
+      router.push("/rider/navigation");
     };
 
     const onRideNoRider = () => {
       setServerMessage("No rider accepted this request in time");
       setActiveRide(null);
       setCountdown(0);
+      setIsAcceptingRide(false);
     };
 
     const onRideAcceptFailed = (payload: { message?: string }) => {
       setServerMessage(payload?.message || "Ride is no longer available");
       setActiveRide(null);
       setCountdown(0);
+      setIsAcceptingRide(false);
+      toast.error(payload?.message || "Ride is no longer available");
     };
 
     const onRiderRegistrationFailed = (payload: { message?: string }) => {
@@ -265,7 +319,7 @@ export default function RideControlPage() {
       socket.off("connect_error");
       socket.disconnect();
     };
-  }, [riderId]);
+  }, [riderId, router]);
 
   useEffect(() => {
     if (!activeRide || countdown <= 0) {
@@ -286,7 +340,9 @@ export default function RideControlPage() {
       return;
     }
 
-    socket.emit("acceptRide", {
+    setIsAcceptingRide(true);
+
+    socket.emit("rideAccepted", {
       rideId: activeRide.rideId,
       riderId,
     });
@@ -305,6 +361,8 @@ export default function RideControlPage() {
     setServerMessage("Ride declined. Waiting for next request...");
     setActiveRide(null);
     setCountdown(0);
+    setIsAcceptingRide(false);
+    toast.info("Ride request rejected.");
   };
 
   const handleCompleteRide = () => {
@@ -345,6 +403,7 @@ export default function RideControlPage() {
 
   return (
     <div className="min-h-screen w-full bg-linear-to-b from-[#0b2a52] to-[#071b35] text-white flex items-center justify-center p-6">
+      <Toaster richColors position="top-center" />
       <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* LEFT MAIN RIDE REQUEST CARD */}
 
@@ -514,6 +573,69 @@ export default function RideControlPage() {
           </div>
         </div>
       </div>
+
+      {activeRide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 text-black shadow-2xl">
+            <h2 className="text-xl font-bold text-[#0b2a52]">
+              New Ride Request
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Respond in {countdown}s to claim this ride.
+            </p>
+
+            <div className="mt-4 space-y-3 text-sm">
+              <div>
+                <p className="text-gray-500">Pickup</p>
+                <p className="font-semibold text-[#0b2a52]">{pickupText}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Drop</p>
+                <p className="font-semibold text-[#0b2a52]">{dropText}</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 rounded-lg bg-gray-100 p-3">
+                <div>
+                  <p className="text-gray-500">Distance</p>
+                  <p className="font-semibold">
+                    {activeRide.distanceKm.toFixed(2)} km
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Time</p>
+                  <p className="font-semibold">
+                    {activeRide.estimatedMinutes} min
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Fare</p>
+                  <p className="font-semibold">
+                    ₹{activeRide.fareAmount.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex gap-3">
+              <button
+                type="button"
+                onClick={handleAcceptRide}
+                disabled={countdown <= 0 || isAcceptingRide}
+                className="flex-1 rounded-lg bg-green-600 px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isAcceptingRide ? "Accepting..." : "Accept"}
+              </button>
+              <button
+                type="button"
+                onClick={handleDeclineRide}
+                disabled={isAcceptingRide}
+                className="flex-1 rounded-lg bg-gray-800 px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

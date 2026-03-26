@@ -100,7 +100,7 @@ export default function Page() {
       setIsRideBooked(false);
       setIsRideMenuOpen(false);
       setBookedRideId(null);
-    }, 15000);
+    }, 30000);
   };
 
   useEffect(() => {
@@ -118,7 +118,9 @@ export default function Page() {
       }
 
       clearRideRequestTimeout();
-      toast.success(payload.message || "A rider accepted your ride.");
+      toast.success(
+        payload.message || "Your ride is accepted. Rider is coming!",
+      );
     };
 
     const onRideNoRider = (payload: { rideId?: string; message?: string }) => {
@@ -127,7 +129,7 @@ export default function Page() {
       }
 
       clearRideRequestTimeout();
-      toast.error(payload.message || "No rides in this area.");
+      toast.error(payload.message || "No Rider in this area.");
       setIsRideBooked(false);
       setIsRideMenuOpen(false);
       setBookedRideId(null);
@@ -334,16 +336,35 @@ export default function Page() {
     }
 
     try {
+      const pickupLng = Number(finalPickup.lon);
+      const pickupLat = Number(finalPickup.lat);
+      const dropLng = Number(finalDrop.lon);
+      const dropLat = Number(finalDrop.lat);
+
       const response = await api.post("/ride/book-ride", {
         userId,
         pickup: {
-          lng: Number(finalPickup.lon),
-          lat: Number(finalPickup.lat),
+          lng: pickupLng,
+          lat: pickupLat,
+          label: finalPickup.display_name || "Pickup",
         },
         drop: {
-          lng: Number(finalDrop.lon),
-          lat: Number(finalDrop.lat),
+          lng: dropLng,
+          lat: dropLat,
+          label: finalDrop.display_name || "Drop",
         },
+        customerId: userId,
+        pickupLocation: {
+          coordinates: [pickupLng, pickupLat],
+          label: finalPickup.display_name || "Pickup",
+        },
+        dropLocation: {
+          coordinates: [dropLng, dropLat],
+          label: finalDrop.display_name || "Drop",
+        },
+        distance: Number(distance || 0),
+        estimatedTime: Number(duration || 0),
+        fare: Number(fare.toFixed(2)),
       });
 
       const rideId = response?.data?.data?.rideId;
