@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Bell, Menu, PanelLeftClose, User, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { socket } from "../../lib/socket";
+import { playHindiRideAlert } from "../../lib/rideAlertAudio";
 import { Toaster, toast } from "sonner";
 
 import Sidebar from "../components/layout/sidevar";
@@ -117,6 +118,7 @@ export default function AppShellRider({ children }: AppShellRiderProps) {
       }
 
       if (pathname !== "/rider/rides") {
+        playHindiRideAlert();
         toast("New ride request received");
         router.push("/rider/rides");
       }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, Navigation, DollarSign, Star, TrendingUp } from "lucide-react";
 import { socket } from "../../../../lib/socket";
+import { playHindiRideAlert } from "../../../../lib/rideAlertAudio";
 import { Toaster, toast } from "sonner";
 
 const EARNINGS_STORAGE_KEY = "rider_earnings_history";
@@ -126,6 +127,7 @@ export default function RideControlPage() {
       setActiveRide(normalizedPayload);
       setCountdown(normalizedPayload.timeoutSeconds || 30);
       setServerMessage("New ride request received");
+      playHindiRideAlert();
     } catch {
       setServerMessage("Failed to load pending ride request.");
     } finally {
@@ -268,6 +270,7 @@ export default function RideControlPage() {
       setCountdown(normalizedPayload.timeoutSeconds || 30);
       setServerMessage(payload.message || "New ride request received");
       setIsAcceptingRide(false);
+      playHindiRideAlert();
       if (typeof window !== "undefined") {
         localStorage.removeItem(RIDER_PENDING_RIDE_REQUEST_KEY);
       }
