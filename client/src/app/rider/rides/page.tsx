@@ -1,14 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, Navigation, DollarSign, Star, TrendingUp } from "lucide-react";
+import {
+  Clock,
+  Navigation,
+  DollarSign,
+  Star,
+  TrendingUp,
+  X,
+} from "lucide-react";
 import { socket } from "../../../../lib/socket";
 import { playHindiRideAlert } from "../../../../lib/rideAlertAudio";
 import { Toaster, toast } from "sonner";
 
 const EARNINGS_STORAGE_KEY = "rider_earnings_history";
 const RIDER_PENDING_RIDE_REQUEST_KEY = "rider_pending_ride_request";
+const RIDE_REQUEST_WAIT_SECONDS = 30;
 
 type EarningsEntry = {
   id: string;
@@ -85,12 +93,43 @@ export default function RideControlPage() {
     null,
   );
   const [countdown, setCountdown] = useState<number>(0);
+  const [isRidePopupVisible, setIsRidePopupVisible] = useState(false);
   const [isAcceptingRide, setIsAcceptingRide] = useState(false);
   const [serverMessage, setServerMessage] = useState<string>(
     "Waiting for new ride request",
   );
   const [earningsHistory, setEarningsHistory] = useState<EarningsEntry[]>([]);
   const activeRideRef = useRef<RideRequestPayload | null>(null);
+  const countdownRef = useRef<number>(0);
+  const rideAlertLoopRef = useRef<number | null>(null);
+
+  const stopRideAlertLoop = useCallback(() => {
+    if (rideAlertLoopRef.current !== null) {
+      window.clearInterval(rideAlertLoopRef.current);
+      rideAlertLoopRef.current = null;
+    }
+
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
+
+  const startRideAlertLoop = useCallback(() => {
+    if (rideAlertLoopRef.current !== null) {
+      return;
+    }
+
+    playHindiRideAlert();
+
+    rideAlertLoopRef.current = window.setInterval(() => {
+      if (!activeRideRef.current || countdownRef.current <= 0) {
+        stopRideAlertLoop();
+        return;
+      }
+
+      playHindiRideAlert();
+    }, 2000);
+  }, [stopRideAlertLoop]);
 
   const normalizeRidePayload = (payload: RideRequestPayload) => {
     const pickupLocation = payload.pickupLocation || payload.pickup;
@@ -107,7 +146,9 @@ export default function RideControlPage() {
       estimatedMinutes: Number(
         payload.estimatedTime ?? payload.estimatedMinutes ?? 0,
       ),
-      timeoutSeconds: Number(payload.timeoutSeconds || 30),
+      timeoutSeconds: Number(
+        payload.timeoutSeconds || RIDE_REQUEST_WAIT_SECONDS,
+      ),
     };
   };
 
@@ -125,7 +166,10 @@ export default function RideControlPage() {
       const parsedPayload = JSON.parse(pendingRide) as RideRequestPayload;
       const normalizedPayload = normalizeRidePayload(parsedPayload);
       setActiveRide(normalizedPayload);
-      setCountdown(normalizedPayload.timeoutSeconds || 30);
+      setCountdown(
+        normalizedPayload.timeoutSeconds || RIDE_REQUEST_WAIT_SECONDS,
+      );
+      setIsRidePopupVisible(true);
       setServerMessage("New ride request received");
       playHindiRideAlert();
     } catch {
@@ -161,6 +205,25 @@ export default function RideControlPage() {
   useEffect(() => {
     activeRideRef.current = activeRide;
   }, [activeRide]);
+
+  useEffect(() => {
+    countdownRef.current = countdown;
+  }, [countdown]);
+
+  useEffect(() => {
+    if (activeRide && countdown > 0) {
+      startRideAlertLoop();
+      return;
+    }
+
+    stopRideAlertLoop();
+  }, [activeRide, countdown, startRideAlertLoop, stopRideAlertLoop]);
+
+  useEffect(() => {
+    return () => {
+      stopRideAlertLoop();
+    };
+  }, [stopRideAlertLoop]);
 
   const persistCompletedRide = (ridePayload: RideRequestPayload) => {
     if (typeof window === "undefined") {
@@ -267,7 +330,10 @@ export default function RideControlPage() {
     const onNewRideRequest = (payload: RideRequestPayload) => {
       const normalizedPayload = normalizeRidePayload(payload);
       setActiveRide(normalizedPayload);
-      setCountdown(normalizedPayload.timeoutSeconds || 30);
+      setCountdown(
+        normalizedPayload.timeoutSeconds || RIDE_REQUEST_WAIT_SECONDS,
+      );
+      setIsRidePopupVisible(true);
       setServerMessage(payload.message || "New ride request received");
       setIsAcceptingRide(false);
       playHindiRideAlert();
@@ -281,6 +347,7 @@ export default function RideControlPage() {
       setServerMessage("Ride was accepted by another rider");
       setActiveRide(null);
       setCountdown(0);
+      setIsRidePopupVisible(false);
       setIsAcceptingRide(false);
       toast.info("Ride already accepted by another rider.");
     };
@@ -299,6 +366,7 @@ export default function RideControlPage() {
       setServerMessage("Ride accepted. Complete the ride after drop-off.");
       setActiveRide(null);
       setCountdown(0);
+      setIsRidePopupVisible(false);
       setIsAcceptingRide(false);
       toast.success("Ride accepted. Opening navigation.");
       router.push("/rider/navigation");
@@ -308,6 +376,7 @@ export default function RideControlPage() {
       setServerMessage("No rider accepted this request in time");
       setActiveRide(null);
       setCountdown(0);
+      setIsRidePopupVisible(false);
       setIsAcceptingRide(false);
     };
 
@@ -315,6 +384,7 @@ export default function RideControlPage() {
       setServerMessage(payload?.message || "Ride is no longer available");
       setActiveRide(null);
       setCountdown(0);
+      setIsRidePopupVisible(false);
       setIsAcceptingRide(false);
       toast.error(payload?.message || "Ride is no longer available");
     };
@@ -323,6 +393,7 @@ export default function RideControlPage() {
       setServerMessage(payload?.message || "Rider registration failed");
       setActiveRide(null);
       setCountdown(0);
+      setIsRidePopupVisible(false);
     };
 
     socket.on("connect", onConnect);
@@ -392,8 +463,13 @@ export default function RideControlPage() {
     setServerMessage("Ride declined. Waiting for next request...");
     setActiveRide(null);
     setCountdown(0);
+    setIsRidePopupVisible(false);
     setIsAcceptingRide(false);
     toast.info("Ride request rejected.");
+  };
+
+  const handleDismissRidePopup = () => {
+    setIsRidePopupVisible(false);
   };
 
   const handleCompleteRide = () => {
@@ -605,12 +681,22 @@ export default function RideControlPage() {
         </div>
       </div>
 
-      {activeRide && (
+      {activeRide && isRidePopupVisible && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-5 text-black shadow-2xl">
-            <h2 className="text-xl font-bold text-[#0b2a52]">
-              New Ride Request
-            </h2>
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-xl font-bold text-[#0b2a52]">
+                New Ride Request
+              </h2>
+              <button
+                type="button"
+                onClick={handleDismissRidePopup}
+                aria-label="Close ride request popup"
+                className="rounded-full p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+              >
+                <X size={18} />
+              </button>
+            </div>
             <p className="mt-1 text-sm text-gray-600">
               Respond in {countdown}s to claim this ride.
             </p>
