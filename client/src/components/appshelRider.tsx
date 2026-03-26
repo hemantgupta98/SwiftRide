@@ -1,9 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bell, Menu, PanelLeftClose, User, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import { socket } from "../../lib/socket";
+import { Toaster, toast } from "sonner";
 
 import Sidebar from "../components/layout/sidevar";
 
@@ -26,6 +28,23 @@ function formatRouteLabel(pathname: string) {
     .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
+const RIDER_PENDING_RIDE_REQUEST_KEY = "rider_pending_ride_request";
+
+const parseUserIdFromToken = (token: string) => {
+  try {
+    const base64UrlPayload = token.split(".")[1] || "";
+    const base64Payload = base64UrlPayload
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(base64UrlPayload.length / 4) * 4, "=");
+
+    const payload = JSON.parse(atob(base64Payload));
+    return payload?.id ? String(payload.id) : null;
+  } catch {
+    return null;
+  }
+};
+
 export default function AppShellRider({ children }: AppShellRiderProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -33,8 +52,94 @@ export default function AppShellRider({ children }: AppShellRiderProps) {
 
   const pageTitle = useMemo(() => formatRouteLabel(pathname), [pathname]);
 
+  const riderId = useMemo(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const token = localStorage.getItem("token") || "";
+    return parseUserIdFromToken(token);
+  }, []);
+
+  useEffect(() => {
+    const sendLiveLocation = () => {
+      if (!riderId) {
+        return;
+      }
+
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        socket.emit("registerRider", { riderId });
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { longitude, latitude } = position.coords;
+
+          socket.emit("registerRider", {
+            riderId,
+            location: {
+              lng: longitude,
+              lat: latitude,
+            },
+          });
+
+          socket.emit("updateRiderLocation", {
+            riderId,
+            lng: longitude,
+            lat: latitude,
+            isOnline: true,
+          });
+        },
+        () => {
+          socket.emit("registerRider", { riderId });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 5000,
+        },
+      );
+    };
+
+    const onConnect = () => {
+      if (riderId) {
+        sendLiveLocation();
+      }
+    };
+
+    const onNewRideRequest = (payload: unknown) => {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          RIDER_PENDING_RIDE_REQUEST_KEY,
+          JSON.stringify(payload),
+        );
+      }
+
+      if (pathname !== "/rider/rides") {
+        toast("New ride request received");
+        router.push("/rider/rides");
+      }
+    };
+
+    socket.on("connect", onConnect);
+    socket.on("newRideRequest", onNewRideRequest);
+
+    socket.connect();
+
+    if (socket.connected) {
+      onConnect();
+    }
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("newRideRequest", onNewRideRequest);
+    };
+  }, [pathname, riderId, router]);
+
   return (
     <div className="h-dvh overflow-hidden bg-slate-100 text-slate-950">
+      <Toaster richColors position="top-center" />
       {isSidebarOpen && (
         <div className="fixed inset-0 z-40 bg-slate-950/45 md:hidden">
           <button

@@ -7,6 +7,7 @@ import { socket } from "../../../../lib/socket";
 import { Toaster, toast } from "sonner";
 
 const EARNINGS_STORAGE_KEY = "rider_earnings_history";
+const RIDER_PENDING_RIDE_REQUEST_KEY = "rider_pending_ride_request";
 
 type EarningsEntry = {
   id: string;
@@ -108,6 +109,29 @@ export default function RideControlPage() {
       timeoutSeconds: Number(payload.timeoutSeconds || 30),
     };
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const pendingRide = localStorage.getItem(RIDER_PENDING_RIDE_REQUEST_KEY);
+    if (!pendingRide) {
+      return;
+    }
+
+    try {
+      const parsedPayload = JSON.parse(pendingRide) as RideRequestPayload;
+      const normalizedPayload = normalizeRidePayload(parsedPayload);
+      setActiveRide(normalizedPayload);
+      setCountdown(normalizedPayload.timeoutSeconds || 30);
+      setServerMessage("New ride request received");
+    } catch {
+      setServerMessage("Failed to load pending ride request.");
+    } finally {
+      localStorage.removeItem(RIDER_PENDING_RIDE_REQUEST_KEY);
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -244,6 +268,9 @@ export default function RideControlPage() {
       setCountdown(normalizedPayload.timeoutSeconds || 30);
       setServerMessage(payload.message || "New ride request received");
       setIsAcceptingRide(false);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(RIDER_PENDING_RIDE_REQUEST_KEY);
+      }
       toast("New ride request received");
     };
 
@@ -306,8 +333,6 @@ export default function RideControlPage() {
       setServerMessage("Socket connection failed. Check backend URL/CORS.");
     });
 
-    socket.connect();
-
     if (socket.connected) {
       onConnect();
     }
@@ -321,7 +346,6 @@ export default function RideControlPage() {
       socket.off("rideAcceptFailed", onRideAcceptFailed);
       socket.off("riderRegistrationFailed", onRiderRegistrationFailed);
       socket.off("connect_error");
-      socket.disconnect();
     };
   }, [riderId, router]);
 
