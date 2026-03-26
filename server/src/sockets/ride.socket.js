@@ -8,6 +8,7 @@ import {
   setRiderOnlineState,
   updateRiderLiveLocation,
 } from "../modules/ride/ride.service.js";
+import Ride from "../modules/ride/ride.model.js";
 import { createNotification } from "../modules/notification/notification.service.js";
 import { createRideNotification } from "../modules/rideNotification/rideNotification.service.js";
 
@@ -26,6 +27,35 @@ const emitToUser = (io, userId, eventName, payload) => {
   }
 
   io.to(String(userId)).emit(eventName, payload);
+};
+
+const toRadians = (value) => (value * Math.PI) / 180;
+
+const calculateDistanceKm = (fromCoordinates = [], toCoordinates = []) => {
+  const [fromLng, fromLat] = fromCoordinates.map(Number);
+  const [toLng, toLat] = toCoordinates.map(Number);
+
+  if (
+    !Number.isFinite(fromLng) ||
+    !Number.isFinite(fromLat) ||
+    !Number.isFinite(toLng) ||
+    !Number.isFinite(toLat)
+  ) {
+    return null;
+  }
+
+  const earthRadiusKm = 6371;
+  const deltaLat = toRadians(toLat - fromLat);
+  const deltaLng = toRadians(toLng - fromLng);
+
+  const a =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(toRadians(fromLat)) *
+      Math.cos(toRadians(toLat)) *
+      Math.sin(deltaLng / 2) ** 2;
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Number((earthRadiusKm * c).toFixed(2));
 };
 
 const clearRideTimeout = (rideId) => {
@@ -258,6 +288,12 @@ const handleRiderDeclineRide = async (io, socket, payload) => {
       message: "You declined this ride request.",
     });
 
+    emitToUser(io, declinedRide.userId, "rideRejected", {
+      rideId: String(declinedRide._id),
+      riderId: String(riderId),
+      message: "Sorry, ride reject your ride.",
+    });
+
     const uniqueRequested = new Set(
       (declinedRide.requestedRiderIds || []).map((id) => String(id)),
     );
@@ -318,7 +354,7 @@ const registerRideSocketHandlers = (io, socket) => {
     }
   });
 
-  socket.on("registerUser", (payload = {}) => {
+  const registerUserSocket = (payload = {}) => {
     const { userId } = payload;
     if (!userId) {
       return;
@@ -327,7 +363,10 @@ const registerRideSocketHandlers = (io, socket) => {
     userSocketMap.set(String(userId), socket.id);
     socketToUserMap.set(socket.id, String(userId));
     socket.join(String(userId));
-  });
+  };
+
+  socket.on("registerUser", registerUserSocket);
+  socket.on("registerUserIs", registerUserSocket);
 
   socket.on("updateRiderLocation", async (payload = {}) => {
     try {
@@ -347,6 +386,36 @@ const registerRideSocketHandlers = (io, socket) => {
         location: rider.location,
         isOnline: rider.isOnline,
       });
+
+      const activeRide = await Ride.findOne({
+        riderId,
+        status: "accepted",
+      })
+        .sort({ acceptedAt: -1 })
+        .select("_id userId pickup")
+        .lean();
+
+      if (activeRide?.userId) {
+        const riderCoordinates = rider?.location?.coordinates || [lng, lat];
+        const pickupCoordinates = activeRide?.pickup?.coordinates || [];
+
+        emitToUser(io, activeRide.userId, "riderLocationUpdatedForUser", {
+          rideId: String(activeRide._id),
+          riderId: String(rider._id),
+          riderLocation: {
+            coordinates: riderCoordinates,
+            label: rider?.location?.label || "Rider",
+          },
+          pickupLocation: {
+            coordinates: pickupCoordinates,
+            label: activeRide?.pickup?.label || "Pickup",
+          },
+          distanceToPickupKm: calculateDistanceKm(
+            riderCoordinates,
+            pickupCoordinates,
+          ),
+        });
+      }
     } catch (error) {
       socket.emit("riderLocationUpdateFailed", {
         message: error.message || "Failed to update location",

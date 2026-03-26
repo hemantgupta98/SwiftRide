@@ -62,6 +62,11 @@ export default function Page() {
   const [isRideBooked, setIsRideBooked] = useState(false);
   const [isRideMenuOpen, setIsRideMenuOpen] = useState(false);
   const [bookedRideId, setBookedRideId] = useState<string | null>(null);
+  const [acceptedRideId, setAcceptedRideId] = useState<string | null>(null);
+  const [riderLocation, setRiderLocation] = useState<LatLng | null>(null);
+  const [riderPickupDistanceKm, setRiderPickupDistanceKm] = useState<
+    number | null
+  >(null);
   const bookedRideIdRef = useRef<string | null>(null);
   const rideRequestTimeoutRef = useRef<number | null>(null);
 
@@ -106,19 +111,58 @@ export default function Page() {
   useEffect(() => {
     const onConnect = () => {
       if (userId) {
-        socket.emit("registerUserIs", { userId });
+        socket.emit("registerUser", { userId });
       }
     };
 
-    const onRideAccepted = (payload: { rideId?: string; message?: string }) => {
+    const onRideAccepted = (payload: {
+      rideId?: string;
+      message?: string;
+      riderLocation?: { coordinates?: [number, number] };
+    }) => {
       if (!payload?.rideId || payload.rideId !== bookedRideIdRef.current) {
         return;
       }
 
       clearRideRequestTimeout();
+      setAcceptedRideId(payload.rideId);
+
+      if (payload?.riderLocation?.coordinates?.length === 2) {
+        const [riderLng, riderLat] = payload.riderLocation.coordinates;
+        setRiderLocation([Number(riderLat), Number(riderLng)]);
+      }
+
       toast.success(
         payload.message || "Your ride is accepted. Rider is coming!",
       );
+    };
+
+    const onRideRejected = (payload: { rideId?: string; message?: string }) => {
+      if (!payload?.rideId || payload.rideId !== bookedRideIdRef.current) {
+        return;
+      }
+
+      toast.error(payload.message || "Sorry, ride reject your ride.");
+    };
+
+    const onRiderLocationUpdatedForUser = (payload: {
+      rideId?: string;
+      riderLocation?: { coordinates?: [number, number] };
+      distanceToPickupKm?: number | null;
+    }) => {
+      if (!payload?.rideId || payload.rideId !== bookedRideIdRef.current) {
+        return;
+      }
+
+      const coordinates = payload?.riderLocation?.coordinates;
+      if (Array.isArray(coordinates) && coordinates.length === 2) {
+        const [riderLng, riderLat] = coordinates;
+        setRiderLocation([Number(riderLat), Number(riderLng)]);
+      }
+
+      if (typeof payload.distanceToPickupKm === "number") {
+        setRiderPickupDistanceKm(payload.distanceToPickupKm);
+      }
     };
 
     const onRideNoRider = (payload: { rideId?: string; message?: string }) => {
@@ -131,10 +175,15 @@ export default function Page() {
       setIsRideBooked(false);
       setIsRideMenuOpen(false);
       setBookedRideId(null);
+      setAcceptedRideId(null);
+      setRiderLocation(null);
+      setRiderPickupDistanceKm(null);
     };
 
     socket.on("connect", onConnect);
     socket.on("rideAccepted", onRideAccepted);
+    socket.on("rideRejected", onRideRejected);
+    socket.on("riderLocationUpdatedForUser", onRiderLocationUpdatedForUser);
     socket.on("rideNoRider", onRideNoRider);
 
     socket.connect();
@@ -146,6 +195,8 @@ export default function Page() {
     return () => {
       socket.off("connect", onConnect);
       socket.off("rideAccepted", onRideAccepted);
+      socket.off("rideRejected", onRideRejected);
+      socket.off("riderLocationUpdatedForUser", onRiderLocationUpdatedForUser);
       socket.off("rideNoRider", onRideNoRider);
       clearRideRequestTimeout();
       socket.disconnect();
@@ -408,6 +459,9 @@ export default function Page() {
     setIsRideBooked(false);
     setIsRideMenuOpen(false);
     setBookedRideId(null);
+    setAcceptedRideId(null);
+    setRiderLocation(null);
+    setRiderPickupDistanceKm(null);
   };
 
   // Auto-generate live route details as soon as both locations are selected.
@@ -563,6 +617,12 @@ export default function Page() {
         </div>
       )}
 
+      {isRideBooked && acceptedRideId && riderPickupDistanceKm !== null && (
+        <p className="text-sm font-semibold text-blue-700">
+          Rider is {riderPickupDistanceKm.toFixed(2)} km away from pickup.
+        </p>
+      )}
+
       {hasBothLocations && isRouteLoading && (
         <p className="text-sm text-gray-600">Loading live tracking route...</p>
       )}
@@ -596,6 +656,10 @@ export default function Page() {
               <Marker
                 position={[Number(dropLocation.lat), Number(dropLocation.lon)]}
               />
+            )}
+
+            {riderLocation && isRideBooked && acceptedRideId && (
+              <Marker position={riderLocation} />
             )}
 
             {/* route */}
