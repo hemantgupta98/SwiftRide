@@ -1,6 +1,7 @@
 import {
   claimRewardByUserId,
   createRideBooking,
+  findRideHistoryByRiderId,
   findRideHistoryByUserId,
   findNearbyOnlineRiders,
   getRewardsStatusByUserId,
@@ -11,12 +12,27 @@ import { createNotification } from "../notification/notification.service.js";
 
 const updateRiderLocationController = async (req, res) => {
   try {
-    const { riderId, lng, lat, isOnline } = req.body;
+    const { lng, lat, isOnline } = req.body;
+    const riderId = req.user?.id;
 
-    if (!riderId || lng === undefined || lat === undefined) {
+    if (!riderId) {
+      return res.status(401).json({
+        success: false,
+        message: "Please login first",
+      });
+    }
+
+    if (req.user?.role !== "rider") {
+      return res.status(403).json({
+        success: false,
+        message: "Only riders can update rider location",
+      });
+    }
+
+    if (lng === undefined || lat === undefined) {
       return res.status(400).json({
         success: false,
-        message: "riderId, lng and lat are required",
+        message: "lng and lat are required",
       });
     }
 
@@ -72,8 +88,6 @@ const findNearbyRidersController = async (req, res) => {
 const bookRideController = async (req, res) => {
   try {
     const {
-      customerId,
-      userId,
       pickupLocation,
       dropLocation,
       pickup,
@@ -83,7 +97,21 @@ const bookRideController = async (req, res) => {
       fare,
     } = req.body;
 
-    const resolvedCustomerId = customerId || userId;
+    const resolvedCustomerId = req.user?.id;
+
+    if (!resolvedCustomerId) {
+      return res.status(401).json({
+        success: false,
+        message: "Please login first",
+      });
+    }
+
+    if (req.user?.role !== "customer") {
+      return res.status(403).json({
+        success: false,
+        message: "Only customers can book rides",
+      });
+    }
 
     const resolvedPickup =
       pickupLocation ||
@@ -153,6 +181,7 @@ const bookRideController = async (req, res) => {
 const getRideHistoryController = async (req, res) => {
   try {
     const userId = req.user?.id;
+    const role = req.user?.role;
 
     if (!userId) {
       return res.status(401).json({
@@ -161,7 +190,12 @@ const getRideHistoryController = async (req, res) => {
       });
     }
 
-    const rides = await findRideHistoryByUserId(userId);
+    let rides = [];
+    if (role === "rider") {
+      rides = await findRideHistoryByRiderId(userId);
+    } else {
+      rides = await findRideHistoryByUserId(userId);
+    }
 
     return res.status(200).json({
       success: true,
@@ -184,6 +218,13 @@ const getRewardsStatusController = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: "Please login first",
+      });
+    }
+
+    if (req.user?.role !== "customer") {
+      return res.status(403).json({
+        success: false,
+        message: "Only customers can access reward status",
       });
     }
 
@@ -210,6 +251,13 @@ const claimRewardController = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: "Please login first",
+      });
+    }
+
+    if (req.user?.role !== "customer") {
+      return res.status(403).json({
+        success: false,
+        message: "Only customers can claim rewards",
       });
     }
 

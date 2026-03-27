@@ -25,6 +25,12 @@ const locationSchema = new mongoose.Schema(
 
 const rideSchema = new mongoose.Schema(
   {
+    customerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "customerHistories",
+      required: true,
+      index: true,
+    },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "customerHistories",
@@ -62,7 +68,14 @@ const rideSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["searching", "accepted", "timeout", "cancelled", "completed"],
+      enum: [
+        "searching",
+        "accepted",
+        "started",
+        "timeout",
+        "cancelled",
+        "completed",
+      ],
       default: "searching",
       index: true,
     },
@@ -89,6 +102,18 @@ const rideSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+rideSchema.pre("validate", function (next) {
+  if (!this.customerId && this.userId) {
+    this.customerId = this.userId;
+  }
+
+  if (!this.userId && this.customerId) {
+    this.userId = this.customerId;
+  }
+
+  next();
+});
 
 const Ride = mongoose.model("RideBooking", rideSchema, "ride_bookings");
 

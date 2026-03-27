@@ -5,11 +5,25 @@ import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { api } from "../../../lib/api";
 import { socket } from "../../../lib/socket";
+import { useDistance } from "../../hooks/useDistance";
+import { useLiveLocation } from "../../hooks/useLiveLocation";
+import { useSocket } from "../../hooks/useSocket";
 
 import "leaflet/dist/leaflet.css";
 import { MapPin, Flag, MoreVertical } from "lucide-react";
 import { Toaster, toast } from "sonner";
+
 type LatLng = [number, number];
+
+type RideStage =
+  | "idle"
+  | "searching"
+  | "accepted"
+  | "arrived"
+  | "started"
+  | "cancelled";
+
+const ARRIVAL_THRESHOLD_METERS = 4;
 
 const parseUserIdFromToken = (token: string) => {
   try {
@@ -43,6 +57,32 @@ const Polyline = dynamic(
   { ssr: false },
 );
 
+const tupleToPoint = (value: LatLng | null) => {
+  if (!value) {
+    return null;
+  }
+
+  return {
+    lat: value[0],
+    lng: value[1],
+  };
+};
+
+const locationToLatLng = (location: any): LatLng | null => {
+  if (!location) {
+    return null;
+  }
+
+  const lat = Number(location.lat);
+  const lng = Number(location.lon);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  return [lat, lng];
+};
+
 export default function Page() {
   const [pickup, setPickup] = useState("");
   const [drop, setDrop] = useState("");
@@ -63,12 +103,17 @@ export default function Page() {
   const [isRideMenuOpen, setIsRideMenuOpen] = useState(false);
   const [bookedRideId, setBookedRideId] = useState<string | null>(null);
   const [acceptedRideId, setAcceptedRideId] = useState<string | null>(null);
+  const [acceptedRiderId, setAcceptedRiderId] = useState<string | null>(null);
   const [riderLocation, setRiderLocation] = useState<LatLng | null>(null);
   const [riderPickupDistanceKm, setRiderPickupDistanceKm] = useState<
     number | null
   >(null);
+  const [rideStage, setRideStage] = useState<RideStage>("idle");
+  const [socketStatus, setSocketStatus] = useState("connecting");
+
   const bookedRideIdRef = useRef<string | null>(null);
   const rideRequestTimeoutRef = useRef<number | null>(null);
+  const arrivalToastShownRef = useRef(false);
 
   const userId = useMemo(() => {
     if (typeof window === "undefined") {
@@ -79,8 +124,62 @@ export default function Page() {
     return parseUserIdFromToken(token);
   }, []);
 
+  const { coords: customerLiveCoords } = useLiveLocation({
+    enabled: rideStage === "accepted" || rideStage === "arrived",
+    throttleMs: 2500,
+    minDistanceMeters: 3,
+  });
+
+  const customerPosition = useMemo(() => {
+    if (customerLiveCoords) {
+      return {
+        lat: customerLiveCoords.lat,
+        lng: customerLiveCoords.lng,
+      };
+    }
+
+    const pickup = locationToLatLng(pickupLocation);
+    return tupleToPoint(pickup);
+  }, [customerLiveCoords, pickupLocation]);
+
+  const riderPosition = useMemo(
+    () => tupleToPoint(riderLocation),
+    [riderLocation],
+  );
+
+  const {
+    distanceMeters,
+    text: riderDistanceText,
+    isWithin,
+  } = useDistance(riderPosition, customerPosition);
+
   const fare = distance ? Number(distance) * 15 : 0;
   const hasBothLocations = Boolean(pickupLocation && dropLocation);
+
+  const { isConnected } = useSocket({
+    enabled: true,
+    onConnect: () => {
+      setSocketStatus("connected");
+      if (userId) {
+        socket.emit("registerUser", { userId });
+      }
+    },
+    onDisconnect: () => {
+      setSocketStatus("disconnected");
+    },
+    onReconnect: () => {
+      setSocketStatus("reconnecting");
+      if (userId) {
+        socket.emit("registerUser", { userId });
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (isConnected && userId) {
+      socket.emit("registerUser", { userId });
+    }
+  }, [isConnected, userId]);
 
   useEffect(() => {
     bookedRideIdRef.current = bookedRideId;
@@ -102,21 +201,64 @@ export default function Page() {
       }
 
       toast.error("No rides in this area.");
+      setRideStage("cancelled");
       setIsRideBooked(false);
       setIsRideMenuOpen(false);
       setBookedRideId(null);
     }, 30000);
   };
 
-  useEffect(() => {
-    const onConnect = () => {
-      if (userId) {
-        socket.emit("registerUser", { userId });
-      }
-    };
+  const isInRanchiJharkhand = (location: any) => {
+    const label = String(location?.display_name || "").toLowerCase();
+    return label.includes("ranchi") || label.includes("jharkhand");
+  };
 
+  const getRoute = async (from: LatLng, to: LatLng, updateSummary = false) => {
+    try {
+      setIsRouteLoading(true);
+      const [fromLat, fromLng] = from;
+      const [toLat, toLng] = to;
+
+      const res = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`,
+      );
+
+      const data = await res.json();
+      const routeData = data?.routes?.[0];
+
+      if (!routeData) {
+        throw new Error("No route found");
+      }
+
+      const coords = routeData.geometry.coordinates.map(
+        (c: [number, number]) => [c[1], c[0]] as LatLng,
+      );
+
+      setRoute(coords);
+
+      if (updateSummary) {
+        setDistance((routeData.distance / 1000).toFixed(2));
+        setDuration(Math.ceil(routeData.duration / 60));
+      }
+
+      return true;
+    } catch {
+      if (updateSummary) {
+        setDistance("");
+        setDuration("");
+      }
+      setRoute([]);
+      toast.error("Unable to fetch route. Please try different locations.");
+      return false;
+    } finally {
+      setIsRouteLoading(false);
+    }
+  };
+
+  useEffect(() => {
     const onRideAccepted = (payload: {
       rideId?: string;
+      riderId?: string;
       message?: string;
       riderLocation?: { coordinates?: [number, number] };
     }) => {
@@ -126,6 +268,8 @@ export default function Page() {
 
       clearRideRequestTimeout();
       setAcceptedRideId(payload.rideId);
+      setAcceptedRiderId(payload.riderId || null);
+      setRideStage("accepted");
 
       if (payload?.riderLocation?.coordinates?.length === 2) {
         const [riderLng, riderLat] = payload.riderLocation.coordinates;
@@ -172,41 +316,131 @@ export default function Page() {
 
       clearRideRequestTimeout();
       toast.error(payload.message || "No Rider in this area.");
+      setRideStage("cancelled");
       setIsRideBooked(false);
       setIsRideMenuOpen(false);
       setBookedRideId(null);
       setAcceptedRideId(null);
+      setAcceptedRiderId(null);
       setRiderLocation(null);
       setRiderPickupDistanceKm(null);
     };
 
-    socket.on("connect", onConnect);
+    const onRideStarted = (payload: { rideId?: string }) => {
+      if (!payload?.rideId || payload.rideId !== bookedRideIdRef.current) {
+        return;
+      }
+
+      setRideStage("started");
+      toast.success("Trip started. Heading to drop location.");
+    };
+
+    const onRideCancelled = (payload: {
+      rideId?: string;
+      message?: string;
+    }) => {
+      if (!payload?.rideId || payload.rideId !== bookedRideIdRef.current) {
+        return;
+      }
+
+      toast.error(payload.message || "Ride cancelled.");
+      setRideStage("cancelled");
+      setIsRideBooked(false);
+      setAcceptedRideId(null);
+      setAcceptedRiderId(null);
+      setRiderLocation(null);
+      setRiderPickupDistanceKm(null);
+    };
+
     socket.on("rideAccepted", onRideAccepted);
+    socket.on("ride_accepted", onRideAccepted);
     socket.on("rideRejected", onRideRejected);
     socket.on("riderLocationUpdatedForUser", onRiderLocationUpdatedForUser);
+    socket.on("location_update", onRiderLocationUpdatedForUser);
     socket.on("rideNoRider", onRideNoRider);
-
-    socket.connect();
-
-    if (socket.connected) {
-      onConnect();
-    }
+    socket.on("rideStarted", onRideStarted);
+    socket.on("ride_started", onRideStarted);
+    socket.on("rideCancelled", onRideCancelled);
+    socket.on("ride_cancelled", onRideCancelled);
 
     return () => {
-      socket.off("connect", onConnect);
       socket.off("rideAccepted", onRideAccepted);
+      socket.off("ride_accepted", onRideAccepted);
       socket.off("rideRejected", onRideRejected);
       socket.off("riderLocationUpdatedForUser", onRiderLocationUpdatedForUser);
+      socket.off("location_update", onRiderLocationUpdatedForUser);
       socket.off("rideNoRider", onRideNoRider);
+      socket.off("rideStarted", onRideStarted);
+      socket.off("ride_started", onRideStarted);
+      socket.off("rideCancelled", onRideCancelled);
+      socket.off("ride_cancelled", onRideCancelled);
       clearRideRequestTimeout();
-      socket.disconnect();
     };
-  }, [userId]);
+  }, []);
 
-  const isInRanchiJharkhand = (location: any) => {
-    const label = String(location?.display_name || "").toLowerCase();
-    return label.includes("ranchi") || label.includes("jharkhand");
-  };
+  useEffect(() => {
+    if (rideStage !== "accepted" || !pickupLocation || !riderLocation) {
+      return;
+    }
+
+    const pickupPoint = locationToLatLng(pickupLocation);
+    if (!pickupPoint) {
+      return;
+    }
+
+    getRoute(riderLocation, pickupPoint, false);
+  }, [rideStage, pickupLocation, riderLocation]);
+
+  useEffect(() => {
+    if (rideStage !== "started") {
+      return;
+    }
+
+    const pickupPoint = locationToLatLng(pickupLocation);
+    const dropPoint = locationToLatLng(dropLocation);
+
+    if (!pickupPoint || !dropPoint) {
+      return;
+    }
+
+    getRoute(pickupPoint, dropPoint, false);
+  }, [rideStage, pickupLocation, dropLocation]);
+
+  useEffect(() => {
+    if (rideStage !== "accepted") {
+      return;
+    }
+
+    if (!distanceMeters || !isWithin(ARRIVAL_THRESHOLD_METERS)) {
+      return;
+    }
+
+    if (arrivalToastShownRef.current) {
+      return;
+    }
+
+    arrivalToastShownRef.current = true;
+    setRideStage("arrived");
+
+    toast.info("Rider has arrived at your location", {
+      action: {
+        label: "YES",
+        onClick: () => {
+          if (!bookedRideIdRef.current || !acceptedRiderId) {
+            return;
+          }
+
+          socket.emit("ride_started", {
+            rideId: bookedRideIdRef.current,
+            riderId: acceptedRiderId,
+          });
+
+          setRideStage("started");
+        },
+      },
+      duration: 10000,
+    });
+  }, [acceptedRiderId, distanceMeters, isWithin, rideStage]);
 
   const handleUseCurrentLocation = async () => {
     if (!navigator?.geolocation) {
@@ -259,7 +493,6 @@ export default function Page() {
     }
   };
 
-  // search location (Ranchi only)
   const searchLocation = async (query: string) => {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${query},Ranchi,Jharkhand,India&format=json&limit=5`,
@@ -267,7 +500,6 @@ export default function Page() {
     return res.json();
   };
 
-  // pickup search
   const handlePickupChange = async (value: string) => {
     setPickup(value);
     setPickupLocation(null);
@@ -283,7 +515,6 @@ export default function Page() {
     setPickupSuggestions(results);
   };
 
-  // drop search
   const handleDropChange = async (value: string) => {
     setDrop(value);
     setDropLocation(null);
@@ -299,42 +530,6 @@ export default function Page() {
     setDropSuggestions(results);
   };
 
-  // get route
-  const getRoute = async (pickup: any, drop: any) => {
-    try {
-      setIsRouteLoading(true);
-      const res = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${pickup.lon},${pickup.lat};${drop.lon},${drop.lat}?overview=full&geometries=geojson`,
-      );
-
-      const data = await res.json();
-      const routeData = data?.routes?.[0];
-
-      if (!routeData) {
-        throw new Error("No route found");
-      }
-
-      const coords = routeData.geometry.coordinates.map((c: any) => [
-        c[1],
-        c[0],
-      ]);
-
-      setRoute(coords);
-      setDistance((routeData.distance / 1000).toFixed(2));
-      setDuration(Math.ceil(routeData.duration / 60));
-      return true;
-    } catch {
-      setRoute([]);
-      setDistance("");
-      setDuration("");
-      toast.error("Unable to fetch route. Please try different locations.");
-      return false;
-    } finally {
-      setIsRouteLoading(false);
-    }
-  };
-
-  // Resolve manually typed text to a map location when user does not click suggestions.
   const resolveSelectedLocation = async (value: string, selected: any) => {
     if (selected) {
       return selected;
@@ -349,7 +544,6 @@ export default function Page() {
     return results?.[0] ?? null;
   };
 
-  // book ride
   const handleBookRide = async () => {
     const finalPickup = await resolveSelectedLocation(pickup, pickupLocation);
     const finalDrop = await resolveSelectedLocation(drop, dropLocation);
@@ -379,12 +573,20 @@ export default function Page() {
       return;
     }
 
+    const pickupPoint = locationToLatLng(finalPickup);
+    const dropPoint = locationToLatLng(finalDrop);
+    if (!pickupPoint || !dropPoint) {
+      toast.error("Unable to resolve route points.");
+      return;
+    }
+
     if (route.length === 0) {
-      const routeCreated = await getRoute(finalPickup, finalDrop);
+      const routeCreated = await getRoute(pickupPoint, dropPoint, true);
       if (!routeCreated) {
         return;
       }
     }
+
     if (!userId) {
       toast.error("Please login again to book a ride.");
       return;
@@ -430,8 +632,10 @@ export default function Page() {
 
       const createdRideId = String(rideId);
 
+      arrivalToastShownRef.current = false;
       setBookedRideId(createdRideId);
       setIsRideBooked(true);
+      setRideStage("searching");
       setIsRideMenuOpen(false);
       startRideRequestTimeout(createdRideId);
       toast.success("Ride request sent. Waiting for rider acceptance.");
@@ -457,19 +661,23 @@ export default function Page() {
     setDistance("");
     setDuration("");
     setIsRideBooked(false);
+    setRideStage("idle");
     setIsRideMenuOpen(false);
     setBookedRideId(null);
     setAcceptedRideId(null);
+    setAcceptedRiderId(null);
     setRiderLocation(null);
     setRiderPickupDistanceKm(null);
+    arrivalToastShownRef.current = false;
   };
 
-  // Auto-generate live route details as soon as both locations are selected.
   useEffect(() => {
-    if (!pickupLocation || !dropLocation) {
-      setRoute([]);
-      setDistance("");
-      setDuration("");
+    if (
+      !pickupLocation ||
+      !dropLocation ||
+      rideStage === "accepted" ||
+      rideStage === "arrived"
+    ) {
       return;
     }
 
@@ -484,8 +692,15 @@ export default function Page() {
       return;
     }
 
-    getRoute(pickupLocation, dropLocation);
-  }, [pickupLocation, dropLocation]);
+    const pickupPoint = locationToLatLng(pickupLocation);
+    const dropPoint = locationToLatLng(dropLocation);
+
+    if (!pickupPoint || !dropPoint) {
+      return;
+    }
+
+    getRoute(pickupPoint, dropPoint, true);
+  }, [pickupLocation, dropLocation, rideStage]);
 
   const handleCancelRide = (isFromBookedState: boolean) => {
     if (isFromBookedState) {
@@ -498,6 +713,19 @@ export default function Page() {
       }
     }
 
+    if (
+      bookedRideIdRef.current &&
+      (rideStage === "accepted" ||
+        rideStage === "arrived" ||
+        rideStage === "started")
+    ) {
+      socket.emit("ride_cancelled", {
+        rideId: bookedRideIdRef.current,
+        userId,
+        riderId: acceptedRiderId,
+      });
+    }
+
     resetRideState();
     if (isFromBookedState) {
       toast.info("Your booked ride has been cancelled.");
@@ -505,18 +733,30 @@ export default function Page() {
   };
 
   return (
-    <div className="relative p-6 space-y-6 min-h-screen">
+    <div className="relative min-h-screen space-y-6 p-6">
       <Toaster richColors position="top-center" />
+
+      {hasBothLocations && distance && (
+        <div className="sticky top-0 z-20 rounded-xl border border-orange-200 bg-white/95 p-4 shadow-sm backdrop-blur">
+          <div className="text-lg font-semibold">
+            Distance: {distance} km | Time: {duration} min | Cost: Rs.{" "}
+            {fare.toFixed(2)}
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            Ride stage: {rideStage.toUpperCase()} | Socket: {socketStatus}
+          </p>
+        </div>
+      )}
+
       {!isRideBooked && (
         <>
           <h1 className="text-3xl font-bold text-orange-500">
             SwiftRide Booking
           </h1>
-          <p className=" text-sm text-gray-400">
+          <p className="text-sm text-gray-400">
             Our service in only Ranchi Jharkhand
           </p>
-          {/* Pickup */}
-          <label className="block mb-2 font-semibold">Pickup location</label>
+          <label className="mb-2 block font-semibold">Pickup location</label>
           <div className="relative mb-4">
             <MapPin
               className="absolute left-3 top-1/2 -translate-y-1/2 text-green-600"
@@ -534,7 +774,7 @@ export default function Page() {
             {pickupSuggestions.map((item) => (
               <div
                 key={item.place_id}
-                className="p-2 border cursor-pointer hover:bg-gray-100"
+                className="cursor-pointer border p-2 hover:bg-gray-100"
                 onClick={() => {
                   setPickup(item.display_name);
                   setPickupLocation(item);
@@ -546,8 +786,7 @@ export default function Page() {
             ))}
           </div>
 
-          {/* Drop */}
-          <label className="block mb-2 font-semibold">Drop location</label>
+          <label className="mb-2 block font-semibold">Drop location</label>
           <div className="relative mb-4">
             <Flag
               className="absolute left-3 top-1/2 -translate-y-1/2 text-red-600"
@@ -565,7 +804,7 @@ export default function Page() {
             {dropSuggestions.map((item) => (
               <div
                 key={item.place_id}
-                className="p-2 border cursor-pointer hover:bg-gray-100"
+                className="cursor-pointer border p-2 hover:bg-gray-100"
                 onClick={() => {
                   setDrop(item.display_name);
                   setDropLocation(item);
@@ -581,7 +820,7 @@ export default function Page() {
               type="button"
               onClick={handleUseCurrentLocation}
               disabled={isCurrentLocationLoading}
-              className="mt-2 inline-flex items-center gap-2 bg-blue-500 text-white rounded-md px-4 py-2 font-semibold disabled:opacity-70 disabled:cursor-not-allowed"
+              className="mt-2 inline-flex items-center gap-2 rounded-md bg-blue-500 px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isCurrentLocationLoading
                 ? "Getting Current Location..."
@@ -592,7 +831,7 @@ export default function Page() {
           <div className="flex gap-5">
             <button
               onClick={handleBookRide}
-              className="mt-5 inline-flex items-center gap-2 bg-green-500 text-white rounded-md px-4 py-2 font-semibold"
+              className="mt-5 inline-flex items-center gap-2 rounded-md bg-green-500 px-4 py-2 font-semibold text-white"
               type="button"
             >
               Book Ride
@@ -601,7 +840,7 @@ export default function Page() {
             <button
               type="button"
               onClick={() => handleCancelRide(false)}
-              className="mt-5 inline-flex items-center gap-2 bg-red-500 text-white rounded-md px-4 py-2 font-semibold"
+              className="mt-5 inline-flex items-center gap-2 rounded-md bg-red-500 px-4 py-2 font-semibold text-white"
             >
               Cancel Ride
             </button>
@@ -609,17 +848,12 @@ export default function Page() {
         </>
       )}
 
-      {/* Distance + Time */}
-      {hasBothLocations && distance && (
-        <div className="text-lg font-semibold">
-          Distance: {distance} km | Time: {duration} min | Cost: Rs.{" "}
-          {fare.toFixed(2)}
-        </div>
-      )}
-
-      {isRideBooked && acceptedRideId && riderPickupDistanceKm !== null && (
+      {isRideBooked && acceptedRideId && (
         <p className="text-sm font-semibold text-blue-700">
-          Rider is {riderPickupDistanceKm.toFixed(2)} km away from pickup.
+          Rider is{" "}
+          {riderDistanceText ||
+            `${riderPickupDistanceKm?.toFixed(2) || "0.00"} km`}{" "}
+          away
         </p>
       )}
 
@@ -627,7 +861,6 @@ export default function Page() {
         <p className="text-sm text-gray-600">Loading live tracking route...</p>
       )}
 
-      {/* Map */}
       {hasBothLocations && (
         <div className="relative z-0 h-125 w-full">
           <MapContainer
@@ -641,7 +874,6 @@ export default function Page() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
-            {/* pickup */}
             {pickupLocation && (
               <Marker
                 position={[
@@ -651,7 +883,6 @@ export default function Page() {
               />
             )}
 
-            {/* drop */}
             {dropLocation && (
               <Marker
                 position={[Number(dropLocation.lat), Number(dropLocation.lon)]}
@@ -662,14 +893,13 @@ export default function Page() {
               <Marker position={riderLocation} />
             )}
 
-            {/* route */}
             {route.length > 0 && <Polyline positions={route} />}
           </MapContainer>
         </div>
       )}
 
       {isRideBooked && (
-        <div className="fixed right-6 bottom-6 z-1000">
+        <div className="fixed bottom-6 right-6 z-1000">
           {isRideMenuOpen && (
             <div className="mb-3 w-64 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
               <p className="text-sm font-semibold text-gray-900">
@@ -692,7 +922,7 @@ export default function Page() {
             type="button"
             aria-label="Ride options"
             onClick={() => setIsRideMenuOpen((prev) => !prev)}
-            className="ml-auto flex h-12 w-12 mb-20 items-center justify-center rounded-full bg-black text-white shadow-lg"
+            className="mb-20 ml-auto flex h-12 w-12 items-center justify-center rounded-full bg-black text-white shadow-lg"
           >
             <MoreVertical size={22} />
           </button>
@@ -706,11 +936,11 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className = "", ...props }, ref) => (
-    <div className="border rounded-lg px-4 py-3">
+    <div className="rounded-lg border px-4 py-3">
       <input
         ref={ref}
         {...props}
-        className={`w-full outline-none text-sm ${className}`.trim()}
+        className={`w-full text-sm outline-none ${className}`.trim()}
       />
     </div>
   ),

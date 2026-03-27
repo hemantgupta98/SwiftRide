@@ -214,6 +214,7 @@ const createRideBooking = async ({
     : calculatedMetrics.estimatedMinutes;
 
   return Ride.create({
+    customerId: resolvedCustomerId,
     userId: resolvedCustomerId,
     pickup: toGeoPoint(pickup, pickupLocation?.label || "Pickup"),
     drop: toGeoPoint(drop, dropLocation?.label || "Drop"),
@@ -315,6 +316,66 @@ const markRideTimedOut = async (rideId) => {
   );
 };
 
+const cancelRideByCustomer = async ({ rideId, userId }) => {
+  if (
+    !mongoose.Types.ObjectId.isValid(rideId) ||
+    !mongoose.Types.ObjectId.isValid(userId)
+  ) {
+    throw new Error("Invalid rideId or userId");
+  }
+
+  const ride = await Ride.findOneAndUpdate(
+    {
+      _id: rideId,
+      userId,
+      status: {
+        $in: ["searching", "accepted", "started"],
+      },
+    },
+    {
+      $set: {
+        status: "cancelled",
+      },
+    },
+    { returnDocument: "after" },
+  );
+
+  if (!ride) {
+    throw new Error("Ride is not cancellable");
+  }
+
+  return ride;
+};
+
+const markRideStarted = async ({ rideId, riderId }) => {
+  if (
+    !mongoose.Types.ObjectId.isValid(rideId) ||
+    !mongoose.Types.ObjectId.isValid(riderId)
+  ) {
+    throw new Error("Invalid rideId or riderId");
+  }
+
+  const ride = await Ride.findOneAndUpdate(
+    {
+      _id: rideId,
+      riderId,
+      status: "accepted",
+    },
+    {
+      $set: {
+        status: "started",
+      },
+    },
+    { returnDocument: "after" },
+  );
+
+  if (!ride) {
+    throw new Error("Ride cannot be started");
+  }
+
+  return ride;
+};
+
 const findRideById = async (rideId) => {
   if (!mongoose.Types.ObjectId.isValid(rideId)) {
     return null;
@@ -328,10 +389,25 @@ const findRideHistoryByUserId = async (userId) => {
     throw new Error("Invalid userId");
   }
 
-  return Ride.find({ userId })
+  return Ride.find({
+    $or: [{ customerId: userId }, { userId }],
+  })
     .sort({ createdAt: -1 })
     .select(
-      "_id pickup drop distanceKm fareAmount estimatedMinutes status createdAt updatedAt",
+      "_id customerId riderId pickup drop distanceKm fareAmount estimatedMinutes status createdAt updatedAt",
+    )
+    .lean();
+};
+
+const findRideHistoryByRiderId = async (riderId) => {
+  if (!mongoose.Types.ObjectId.isValid(riderId)) {
+    throw new Error("Invalid riderId");
+  }
+
+  return Ride.find({ riderId })
+    .sort({ createdAt: -1 })
+    .select(
+      "_id customerId riderId pickup drop distanceKm fareAmount estimatedMinutes status createdAt updatedAt",
     )
     .lean();
 };
@@ -476,8 +552,11 @@ export {
   findNearbyOnlineRiders,
   findRideById,
   findRideHistoryByUserId,
+  findRideHistoryByRiderId,
   getRewardsStatusByUserId,
   haversineDistanceKm,
+  cancelRideByCustomer,
+  markRideStarted,
   markRideTimedOut,
   resolveCustomerModelById,
   setRiderOnlineState,

@@ -1,6 +1,7 @@
 import express from "express";
 import jwt from "jsonwebtoken";
 import passport from "passport";
+import rateLimit from "express-rate-limit";
 import {
   signup,
   Userlogin,
@@ -13,6 +14,7 @@ import {
   getProfile,
   updateProfile,
   ridersignup,
+  refreshAuthToken,
 } from "./auth.controllers.js";
 import { sendMailSafe } from "../../utils/mailer.js";
 import { verifyToken } from "./auth.middleware.js";
@@ -26,18 +28,30 @@ const normalizeAuthMode = (value) => (value === "rider" ? "rider" : "customer");
 
 const getOAuthRedirectPathByMode = (mode) =>
   mode === "rider" ? "/rider/home" : "/CuRider";
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many auth requests. Please try again later.",
+  },
+});
 //all are set
 
 // Email / password auth
-router.post("/signup", signup);
-router.post("/ridersignup", ridersignup);
+router.post("/signup", authLimiter, signup);
+router.post("/ridersignup", authLimiter, ridersignup);
 router.get("/me", verifyToken, getProfile);
 router.patch("/me", verifyToken, updateProfile);
-router.post("/login", Userlogin);
-router.post("/riderlogin", Riderlogin);
+router.post("/login", authLimiter, Userlogin);
+router.post("/riderlogin", authLimiter, Riderlogin);
+router.post("/refresh", refreshAuthToken);
 
 // OTP
-router.post("/otp", registerUser);
+router.post("/otp", authLimiter, registerUser);
 router.post("/verifyotp", verifyotp);
 router.post("/resetpassword", resetpassword);
 router.post("/logout", logout);
@@ -112,9 +126,14 @@ router.get(
         );
       }
 
-      const token = jwt.sign({ id: user._id, email: user.email }, secret, {
-        expiresIn: "7d",
-      });
+      const role = mode === "rider" ? "rider" : "customer";
+      const token = jwt.sign(
+        { id: user._id, email: user.email, role },
+        secret,
+        {
+          expiresIn: "7d",
+        },
+      );
 
       return res.redirect(
         `${FRONTEND_URL}${redirectPath}?token=${token}&mode=${mode}`,

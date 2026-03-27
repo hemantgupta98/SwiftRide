@@ -372,6 +372,38 @@ export default function RideControlPage() {
       router.push("/rider/navigation");
     };
 
+    const onRideCancelled = (payload: {
+      rideId?: string;
+      message?: string;
+    }) => {
+      const cancelledRideId = payload?.rideId;
+
+      if (!cancelledRideId) {
+        return;
+      }
+
+      const isActiveRideCancelled =
+        activeRideRef.current?.rideId === cancelledRideId ||
+        ongoingRide?.rideId === cancelledRideId;
+
+      if (!isActiveRideCancelled) {
+        return;
+      }
+
+      setServerMessage("Customer cancelled the ride. Sorry!");
+      setActiveRide(null);
+      setOngoingRide(null);
+      setCountdown(0);
+      setIsRidePopupVisible(false);
+      setIsAcceptingRide(false);
+
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
+      }
+
+      toast.error(payload?.message || "Customer cancelled the ride. Sorry!");
+    };
+
     const onRideNoRider = () => {
       setServerMessage("No rider accepted this request in time");
       setActiveRide(null);
@@ -403,6 +435,8 @@ export default function RideControlPage() {
     socket.on("rideNoRider", onRideNoRider);
     socket.on("rideAcceptFailed", onRideAcceptFailed);
     socket.on("riderRegistrationFailed", onRiderRegistrationFailed);
+    socket.on("rideCancelled", onRideCancelled);
+    socket.on("ride_cancelled", onRideCancelled);
     socket.on("connect_error", () => {
       setServerMessage("Socket connection failed. Check backend URL/CORS.");
     });
@@ -419,9 +453,11 @@ export default function RideControlPage() {
       socket.off("rideNoRider", onRideNoRider);
       socket.off("rideAcceptFailed", onRideAcceptFailed);
       socket.off("riderRegistrationFailed", onRiderRegistrationFailed);
+      socket.off("rideCancelled", onRideCancelled);
+      socket.off("ride_cancelled", onRideCancelled);
       socket.off("connect_error");
     };
-  }, [riderId, router]);
+  }, [ongoingRide?.rideId, riderId, router]);
 
   useEffect(() => {
     if (!activeRide || countdown <= 0) {

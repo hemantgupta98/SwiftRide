@@ -37,6 +37,7 @@ if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
               email,
               googleId: profile.id,
               avatar: profile.photos?.[0]?.value,
+              role: "customer",
             });
           }
 

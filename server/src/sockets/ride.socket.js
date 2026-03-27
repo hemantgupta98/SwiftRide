@@ -2,8 +2,10 @@ import {
   RIDE_REQUEST_TIMEOUT_MS,
   addRideRequestedRiders,
   acceptRideByRider,
+  cancelRideByCustomer,
   declineRideByRider,
   findNearbyOnlineRiders,
+  markRideStarted,
   markRideTimedOut,
   setRiderOnlineState,
   updateRiderLiveLocation,
@@ -27,6 +29,17 @@ const emitToUser = (io, userId, eventName, payload) => {
   }
 
   io.to(String(userId)).emit(eventName, payload);
+};
+
+const emitToRider = (io, riderId, eventName, payload) => {
+  if (!riderId) return;
+
+  const riderSocketId = riderSocketMap.get(String(riderId));
+  if (riderSocketId) {
+    io.to(riderSocketId).emit(eventName, payload);
+  }
+
+  io.to(String(riderId)).emit(eventName, payload);
 };
 
 const toRadians = (value) => (value * Math.PI) / 180;
@@ -212,7 +225,7 @@ const handleRiderAcceptRide = async (io, socket, payload) => {
       message: "You accepted this ride successfully.",
     });
 
-    emitToUser(io, acceptedRide.userId, "rideAccepted", {
+    const acceptedPayload = {
       rideId: String(acceptedRide._id),
       riderId: String(acceptedRide.riderId),
       pickupLocation: {
@@ -232,7 +245,10 @@ const handleRiderAcceptRide = async (io, socket, payload) => {
       fareAmount: acceptedRide.fareAmount,
       estimatedMinutes: acceptedRide.estimatedMinutes,
       message: "Your ride is accepted. Rider is coming!",
-    });
+    };
+
+    emitToUser(io, acceptedRide.userId, "rideAccepted", acceptedPayload);
+    emitToUser(io, acceptedRide.userId, "ride_accepted", acceptedPayload);
 
     await createNotification({
       userId: acceptedRide.userId,
@@ -319,6 +335,93 @@ const handleRiderDeclineRide = async (io, socket, payload) => {
   }
 };
 
+const handleRideCancelledByCustomer = async (io, socket, payload) => {
+  try {
+    const { rideId, userId } = payload || {};
+    const resolvedUserId = userId || socketToUserMap.get(socket.id);
+
+    if (!rideId || !resolvedUserId) {
+      socket.emit("rideCancelFailed", {
+        message: "rideId and userId are required",
+      });
+      return;
+    }
+
+    const cancelledRide = await cancelRideByCustomer({
+      rideId,
+      userId: resolvedUserId,
+    });
+
+    clearRideTimeout(cancelledRide._id);
+
+    const cancelPayload = {
+      rideId: String(cancelledRide._id),
+      riderId: cancelledRide?.riderId ? String(cancelledRide.riderId) : null,
+      userId: String(cancelledRide.userId),
+      message: "Customer cancelled the ride",
+      status: cancelledRide.status,
+    };
+
+    socket.emit("rideCancelled", cancelPayload);
+    socket.emit("ride_cancelled", cancelPayload);
+
+    if (cancelledRide.riderId) {
+      emitToRider(io, cancelledRide.riderId, "rideCancelled", {
+        ...cancelPayload,
+        message: "Customer cancelled the ride. Sorry!",
+      });
+      emitToRider(io, cancelledRide.riderId, "ride_cancelled", {
+        ...cancelPayload,
+        message: "Customer cancelled the ride. Sorry!",
+      });
+    }
+
+    await createNotification({
+      userId: cancelledRide.userId,
+      type: "RIDE_CANCELLED",
+      title: "Ride Cancelled",
+      message: "Your ride has been cancelled.",
+    });
+  } catch (error) {
+    socket.emit("rideCancelFailed", {
+      message: error.message || "Failed to cancel ride",
+    });
+  }
+};
+
+const handleRideStarted = async (io, socket, payload) => {
+  try {
+    const { rideId, riderId } = payload || {};
+    if (!rideId || !riderId) {
+      socket.emit("rideStartFailed", {
+        message: "rideId and riderId are required",
+      });
+      return;
+    }
+
+    const startedRide = await markRideStarted({ rideId, riderId });
+
+    const startedPayload = {
+      rideId: String(startedRide._id),
+      riderId: String(startedRide.riderId),
+      userId: String(startedRide.userId),
+      status: startedRide.status,
+      pickupLocation: startedRide.pickup,
+      dropLocation: startedRide.drop,
+      message: "Ride started",
+    };
+
+    socket.emit("rideStarted", startedPayload);
+    socket.emit("ride_started", startedPayload);
+    emitToUser(io, startedRide.userId, "rideStarted", startedPayload);
+    emitToUser(io, startedRide.userId, "ride_started", startedPayload);
+  } catch (error) {
+    socket.emit("rideStartFailed", {
+      message: error.message || "Failed to start ride",
+    });
+  }
+};
+
 const registerRideSocketHandlers = (io, socket) => {
   socket.on("registerRider", async (payload = {}) => {
     try {
@@ -368,7 +471,7 @@ const registerRideSocketHandlers = (io, socket) => {
   socket.on("registerUser", registerUserSocket);
   socket.on("registerUserIs", registerUserSocket);
 
-  socket.on("updateRiderLocation", async (payload = {}) => {
+  const handleLocationUpdate = async (payload = {}) => {
     try {
       const { riderId, lng, lat, isOnline } = payload;
       if (!riderId || lng === undefined || lat === undefined) {
@@ -389,7 +492,9 @@ const registerRideSocketHandlers = (io, socket) => {
 
       const activeRide = await Ride.findOne({
         riderId,
-        status: "accepted",
+        status: {
+          $in: ["accepted", "started"],
+        },
       })
         .sort({ acceptedAt: -1 })
         .select("_id userId pickup")
@@ -399,7 +504,7 @@ const registerRideSocketHandlers = (io, socket) => {
         const riderCoordinates = rider?.location?.coordinates || [lng, lat];
         const pickupCoordinates = activeRide?.pickup?.coordinates || [];
 
-        emitToUser(io, activeRide.userId, "riderLocationUpdatedForUser", {
+        const locationPayload = {
           rideId: String(activeRide._id),
           riderId: String(rider._id),
           riderLocation: {
@@ -414,14 +519,25 @@ const registerRideSocketHandlers = (io, socket) => {
             riderCoordinates,
             pickupCoordinates,
           ),
-        });
+        };
+
+        emitToUser(
+          io,
+          activeRide.userId,
+          "riderLocationUpdatedForUser",
+          locationPayload,
+        );
+        emitToUser(io, activeRide.userId, "location_update", locationPayload);
       }
     } catch (error) {
       socket.emit("riderLocationUpdateFailed", {
         message: error.message || "Failed to update location",
       });
     }
-  });
+  };
+
+  socket.on("updateRiderLocation", handleLocationUpdate);
+  socket.on("location_update", handleLocationUpdate);
 
   socket.on("acceptRide", (payload) =>
     handleRiderAcceptRide(io, socket, payload),
@@ -429,8 +545,17 @@ const registerRideSocketHandlers = (io, socket) => {
   socket.on("rideAccepted", (payload) =>
     handleRiderAcceptRide(io, socket, payload),
   );
+  socket.on("ride_accepted", (payload) =>
+    handleRiderAcceptRide(io, socket, payload),
+  );
   socket.on("declineRide", (payload) =>
     handleRiderDeclineRide(io, socket, payload),
+  );
+  socket.on("ride_cancelled", (payload) =>
+    handleRideCancelledByCustomer(io, socket, payload),
+  );
+  socket.on("ride_started", (payload) =>
+    handleRideStarted(io, socket, payload),
   );
 
   socket.on("disconnect", async () => {

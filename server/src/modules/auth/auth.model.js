@@ -22,6 +22,12 @@ const authUserSchema = new mongoose.Schema(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    role: {
+      type: String,
+      enum: ["customer", "rider"],
+      default: "customer",
+      index: true,
+    },
     username: { type: String, default: "" },
     contact: { type: String, default: "" },
     address: { type: String, default: "" },
@@ -32,6 +38,8 @@ const authUserSchema = new mongoose.Schema(
     },
     otpCode: { type: String },
     otpExpiresAt: { type: Date },
+    refreshTokenHash: { type: String, default: null },
+    refreshTokenExpiresAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
@@ -53,6 +61,12 @@ const authRiderSchema = new mongoose.Schema(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    role: {
+      type: String,
+      enum: ["customer", "rider"],
+      default: "rider",
+      index: true,
+    },
     vechileNumber: { type: String, required: true },
     vechileType: {
       type: String,
@@ -81,6 +95,8 @@ const authRiderSchema = new mongoose.Schema(
     },
     otpCode: { type: String },
     otpExpiresAt: { type: Date },
+    refreshTokenHash: { type: String, default: null },
+    refreshTokenExpiresAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
@@ -149,6 +165,12 @@ const googleschema = new mongoose.Schema(
     email: { type: String, unique: true },
     googleId: String,
     avatar: String,
+    role: {
+      type: String,
+      enum: ["customer", "rider"],
+      default: "customer",
+      index: true,
+    },
     username: { type: String, default: "" },
     contact: { type: String, default: "" },
     address: { type: String, default: "" },
@@ -157,6 +179,8 @@ const googleschema = new mongoose.Schema(
       type: [rewardClaimSchema],
       default: [],
     },
+    refreshTokenHash: { type: String, default: null },
+    refreshTokenExpiresAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
