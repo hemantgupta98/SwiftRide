@@ -103,7 +103,7 @@ const rideSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-rideSchema.pre("validate", function (next) {
+rideSchema.pre("validate", function () {
   if (!this.customerId && this.userId) {
     this.customerId = this.userId;
   }
@@ -111,8 +111,6 @@ rideSchema.pre("validate", function (next) {
   if (!this.userId && this.customerId) {
     this.userId = this.customerId;
   }
-
-  next();
 });
 
 const Ride = mongoose.model("RideBooking", rideSchema, "ride_bookings");
