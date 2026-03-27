@@ -11,10 +11,12 @@ import {
   LogOut,
   Currency,
   User2Icon,
+  Navigation,
 } from "lucide-react";
 const links = [
   { name: "Dashboard", href: "/rider/home", icon: LayoutDashboard },
   { name: "Rides", href: "/rider/rides", icon: BikeIcon },
+  { name: "Navigation", href: "/rider/navigation", icon: Navigation },
   { name: "Ride History", href: "/rider/history", icon: History },
   { name: "Earning", href: "/rider/earning", icon: Currency },
   { name: "Profile", href: "/rider/profile", icon: User2Icon },
