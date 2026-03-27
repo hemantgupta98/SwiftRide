@@ -82,39 +82,39 @@ export default function DriverProfile() {
     : "Not provided";
 
   return (
-    <div className="min-h-screen bg-[#0b2e4d] text-white p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#0b2e4d] px-4 py-6 text-white sm:px-6 sm:py-8 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold">Driver Profile</h1>
-          <p className="text-gray-300">
+          <h1 className="text-2xl font-bold sm:text-3xl">Driver Profile</h1>
+          <p className="mt-1 text-sm text-gray-300 sm:text-base">
             Manage your personal identity, vehicle details, and legal
             documentation.
           </p>
         </div>
 
         {/* Profile Card */}
-        <div className="bg-white rounded-xl overflow-hidden text-black">
-          <div className="bg-linear-to-r from-green-400 to-blue-400 p-6 flex items-center gap-6">
-            <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white">
+        <div className="overflow-hidden rounded-xl bg-white text-black">
+          <div className="flex flex-col gap-4 bg-linear-to-r from-green-400 to-blue-400 p-4 sm:flex-row sm:items-center sm:gap-6 sm:p-6">
+            <div className="h-16 w-16 overflow-hidden rounded-full border-4 border-white sm:h-20 sm:w-20">
               <Image src="/logo.png" alt="driver" width={80} height={80} />
             </div>
 
             <div className="flex-1">
-              <h2 className="text-2xl font-semibold flex items-center gap-2">
+              <h2 className="flex flex-wrap items-center gap-2 text-xl font-semibold sm:text-2xl">
                 {riderProfile.name || "Rider"}
                 <span className="text-xs bg-green-600 text-white px-2 py-1 rounded-full">
                   Verified Driver
                 </span>
               </h2>
 
-              <p className="flex items-center gap-2 text-sm text-gray-700">
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-700 sm:text-sm">
                 <Star size={16} className="text-green-600" />
                 4.95 Rating • Member since Jan 2022 • 4,281 rides completed
               </p>
             </div>
 
-            <button className="bg-[#0b2e4d] text-white px-4 py-2 rounded-lg">
+            <button className="w-full rounded-lg bg-[#0b2e4d] px-4 py-2 text-white sm:w-auto">
               Edit Profile
             </button>
           </div>
@@ -124,18 +124,18 @@ export default function DriverProfile() {
           {/* Left Section */}
           <div className="lg:col-span-2 space-y-6">
             {/* Personal Info */}
-            <div className="bg-white text-black rounded-xl p-6">
-              <div className="flex justify-between mb-4">
+            <div className="rounded-xl bg-white p-4 text-black sm:p-6">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="font-semibold flex gap-2 items-center">
                   <User size={18} /> Personal Information
                 </h3>
 
-                <button className="bg-[#0b2e4d] text-white px-3 py-1 rounded-md text-sm">
+                <button className="w-full rounded-md bg-[#0b2e4d] px-3 py-2 text-sm text-white sm:w-auto sm:py-1">
                   Edit Details
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Input
                   label="Full Name"
                   icon={<User size={16} />}
@@ -163,7 +163,7 @@ export default function DriverProfile() {
             <div>
               <h3 className="text-lg font-semibold mb-3">Document Vault</h3>
 
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <DocCard
                   title="Driver's License"
                   status="Verified"
@@ -191,13 +191,13 @@ export default function DriverProfile() {
             </div>
 
             {/* Support Box */}
-            <div className="border border-green-400 border-dashed p-6 rounded-xl flex justify-between items-center">
+            <div className="flex flex-col gap-4 rounded-xl border border-dashed border-green-400 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
               <p className="text-sm text-gray-300">
                 Need help with verification? Our compliance team is available
                 24/7.
               </p>
 
-              <button className="border border-green-400 text-green-400 px-4 py-2 rounded-lg">
+              <button className="w-full rounded-lg border border-green-400 px-4 py-2 text-green-400 sm:w-auto">
                 Contact Support
               </button>
             </div>
@@ -206,8 +206,8 @@ export default function DriverProfile() {
           {/* Right Section */}
           <div className="space-y-6">
             {/* Vehicle Card */}
-            <div className="bg-white text-black rounded-xl overflow-hidden">
-              <div className="relative h-36">
+            <div className="overflow-hidden rounded-xl bg-white text-black">
+              <div className="relative h-36 sm:h-40">
                 <Image
                   src="/logo.png"
                   alt="car"
@@ -220,11 +220,11 @@ export default function DriverProfile() {
                 </span>
               </div>
 
-              <div className="p-4 space-y-2">
+              <div className="space-y-2 p-4">
                 <h4 className="font-semibold">{vehicleTypeLabel}</h4>
                 <p className="text-sm text-gray-600">Rider vehicle profile</p>
 
-                <div className="text-sm">
+                <div className="text-sm wrap-break-word">
                   <p>
                     License Plate:{" "}
                     <b>{riderProfile.vechileNumber || "Not provided"}</b>
@@ -244,7 +244,7 @@ export default function DriverProfile() {
             </div>
 
             {/* Verification Health */}
-            <div className="bg-white text-black rounded-xl p-5 space-y-4">
+            <div className="space-y-4 rounded-xl bg-white p-4 text-black sm:p-5">
               <h4 className="font-semibold flex items-center gap-2">
                 <ShieldCheck size={18} /> Verification Health
               </h4>
@@ -257,7 +257,7 @@ export default function DriverProfile() {
                 </div>
               </div>
 
-              <div className="flex gap-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <StatCard label="Verified" value="12" />
                 <StatCard label="Pending" value="1" />
               </div>
@@ -268,7 +268,7 @@ export default function DriverProfile() {
             </div>
 
             {/* Security Warning */}
-            <div className="bg-[#1d3654] border border-red-400 text-white p-5 rounded-xl">
+            <div className="rounded-xl border border-red-400 bg-[#1d3654] p-4 text-white sm:p-5">
               <h4 className="text-red-400 font-semibold mb-2">
                 Security Warning
               </h4>
@@ -309,7 +309,7 @@ function Input({
         <input
           value={value}
           readOnly
-          className="bg-transparent outline-none w-full text-sm"
+          className="w-full truncate bg-transparent text-sm outline-none"
         />
       </div>
     </div>
