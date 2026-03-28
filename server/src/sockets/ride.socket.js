@@ -6,6 +6,7 @@ import {
   declineRideByRider,
   findNearbyOnlineRiders,
   markRideStarted,
+  markRideCompleted,
   markRideTimedOut,
   setRiderOnlineState,
   updateRiderLiveLocation,
@@ -422,6 +423,54 @@ const handleRideStarted = async (io, socket, payload) => {
   }
 };
 
+const handleRideCompleted = async (io, socket, payload) => {
+  try {
+    const { rideId, riderId } = payload || {};
+
+    if (!rideId || !riderId) {
+      socket.emit("rideCompleteFailed", {
+        message: "rideId and riderId are required",
+      });
+      return;
+    }
+
+    const completedRide = await markRideCompleted({ rideId, riderId });
+
+    const completedPayload = {
+      rideId: String(completedRide._id),
+      riderId: String(completedRide.riderId),
+      userId: String(completedRide.userId),
+      status: completedRide.status,
+      completedAt: completedRide.completedAt,
+      pickupLocation: completedRide.pickup,
+      dropLocation: completedRide.drop,
+      distanceKm: completedRide.distanceKm,
+      fareAmount: completedRide.fareAmount,
+      message: "Ride completed successfully",
+    };
+
+    // Emit to rider
+    socket.emit("rideCompleted", completedPayload);
+    socket.emit("ride_completed", completedPayload);
+
+    // Emit to customer
+    emitToUser(io, completedRide.userId, "rideCompleted", completedPayload);
+    emitToUser(io, completedRide.userId, "ride_completed", completedPayload);
+
+    // Create notification for customer
+    await createNotification({
+      userId: completedRide.userId,
+      type: "RIDE_COMPLETED",
+      title: "Ride Completed",
+      message: `Your ride has been completed. Fare: ₹${completedRide.fareAmount}`,
+    });
+  } catch (error) {
+    socket.emit("rideCompleteFailed", {
+      message: error.message || "Failed to complete ride",
+    });
+  }
+};
+
 const registerRideSocketHandlers = (io, socket) => {
   socket.on("registerRider", async (payload = {}) => {
     try {
@@ -556,6 +605,12 @@ const registerRideSocketHandlers = (io, socket) => {
   );
   socket.on("ride_started", (payload) =>
     handleRideStarted(io, socket, payload),
+  );
+  socket.on("rideCompleted", (payload) =>
+    handleRideCompleted(io, socket, payload),
+  );
+  socket.on("ride_completed", (payload) =>
+    handleRideCompleted(io, socket, payload),
   );
 
   socket.on("disconnect", async () => {

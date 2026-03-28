@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast, Toaster } from "sonner";
@@ -99,8 +99,57 @@ export default function RiderNavigationPage() {
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [error, setError] = useState("");
   const [stage, setStage] = useState<NavigationStage>("toPickup");
+  const [locationWatcher, setLocationWatcher] = useState<number | null>(null);
 
   const arrivalToastShownRef = useRef(false);
+
+  // Cleanup function to reset all navigation state
+  const cleanupNavigation = useCallback(
+    (reason: "cancelled" | "completed" = "cancelled") => {
+      // 1. Clear ride details from state
+      setRide(null);
+      setPickupCoordinates(null);
+      setDropCoordinates(null);
+      setRiderCoordinates(null);
+      setRoute([]);
+      setError("");
+      setPickupLabel("Pickup");
+      setDropLabel("Drop");
+
+      // 2. Stop live tracking
+      if (locationWatcher !== null) {
+        navigator.geolocation.clearWatch(locationWatcher);
+        setLocationWatcher(null);
+      }
+
+      // 3. Clear storage
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
+      }
+
+      // 4. Reset navigation stage
+      setStage("cancelled");
+
+      // 5. Show appropriate toast notification
+      if (reason === "completed") {
+        toast.success("Ride completed successfully! Great job!", {
+          duration: 3000,
+        });
+      } else {
+        toast.error("Customer cancelled the ride. Sorry!", {
+          duration: 3000,
+        });
+      }
+
+      // 6. Redirect to rider home/rides after a short delay
+      const redirectTimeout = setTimeout(() => {
+        router.push("/rider/home");
+      }, 2000);
+
+      return () => clearTimeout(redirectTimeout);
+    },
+    [locationWatcher, router],
+  );
 
   const riderId = useMemo(() => {
     if (typeof window === "undefined") {
@@ -193,22 +242,33 @@ export default function RiderNavigationPage() {
         return;
       }
 
-      setStage("cancelled");
-      setRoute([]);
-      toast.error(payload.message || "Customer cancelled the ride. Sorry!");
-      if (typeof window !== "undefined") {
-        localStorage.removeItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
+      cleanupNavigation("cancelled");
+    };
+
+    const onRideCompleted = (payload: {
+      rideId?: string;
+      status?: string;
+      message?: string;
+    }) => {
+      if (!payload?.rideId || payload.rideId !== ride.rideId) {
+        return;
       }
+
+      cleanupNavigation("completed");
     };
 
     socket.on("rideCancelled", onRideCancelled);
     socket.on("ride_cancelled", onRideCancelled);
+    socket.on("rideCompleted", onRideCompleted);
+    socket.on("ride_completed", onRideCompleted);
 
     return () => {
       socket.off("rideCancelled", onRideCancelled);
       socket.off("ride_cancelled", onRideCancelled);
+      socket.off("rideCompleted", onRideCompleted);
+      socket.off("ride_completed", onRideCompleted);
     };
-  }, [ride?.rideId]);
+  }, [ride?.rideId, cleanupNavigation]);
 
   const riderPoint = useMemo(() => {
     if (riderCoordinates) {
@@ -233,7 +293,19 @@ export default function RiderNavigationPage() {
     };
   }, [pickupCoordinates]);
 
+  const dropPoint = useMemo(() => {
+    if (!dropCoordinates) {
+      return null;
+    }
+
+    return {
+      lat: dropCoordinates[1],
+      lng: dropCoordinates[0],
+    };
+  }, [dropCoordinates]);
+
   const { isWithin, text: distanceText } = useDistance(riderPoint, pickupPoint);
+  const { isWithin: isWithinDrop } = useDistance(riderPoint, dropPoint);
 
   useEffect(() => {
     if (stage !== "toPickup") {
@@ -268,6 +340,34 @@ export default function RiderNavigationPage() {
       duration: 10000,
     });
   }, [isWithin, ride?.rideId, riderId, stage]);
+
+  // Arrival detection for drop location
+  useEffect(() => {
+    if (stage !== "toDrop") {
+      return;
+    }
+
+    if (!isWithinDrop(ARRIVAL_THRESHOLD_METERS)) {
+      return;
+    }
+
+    toast.info("You have arrived at drop location", {
+      action: {
+        label: "Mark Complete",
+        onClick: () => {
+          if (!ride?.rideId || !riderId) {
+            return;
+          }
+
+          socket.emit("ride_completed", {
+            rideId: ride.rideId,
+            riderId,
+          });
+        },
+      },
+      duration: 15000,
+    });
+  }, [isWithinDrop, ride?.rideId, riderId, stage]);
 
   useEffect(() => {
     const fetchRoute = async () => {

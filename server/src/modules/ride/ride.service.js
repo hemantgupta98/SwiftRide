@@ -376,6 +376,36 @@ const markRideStarted = async ({ rideId, riderId }) => {
   return ride;
 };
 
+const markRideCompleted = async ({ rideId, riderId }) => {
+  if (
+    !mongoose.Types.ObjectId.isValid(rideId) ||
+    !mongoose.Types.ObjectId.isValid(riderId)
+  ) {
+    throw new Error("Invalid rideId or riderId");
+  }
+
+  const ride = await Ride.findOneAndUpdate(
+    {
+      _id: rideId,
+      riderId,
+      status: "started",
+    },
+    {
+      $set: {
+        status: "completed",
+        completedAt: new Date(),
+      },
+    },
+    { returnDocument: "after" },
+  );
+
+  if (!ride) {
+    throw new Error("Ride cannot be completed");
+  }
+
+  return ride;
+};
+
 const findRideById = async (rideId) => {
   if (!mongoose.Types.ObjectId.isValid(rideId)) {
     return null;
@@ -557,6 +587,7 @@ export {
   haversineDistanceKm,
   cancelRideByCustomer,
   markRideStarted,
+  markRideCompleted,
   markRideTimedOut,
   resolveCustomerModelById,
   setRiderOnlineState,
