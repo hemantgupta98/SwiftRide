@@ -21,6 +21,10 @@ const socketToRiderMap = new Map();
 const socketToUserMap = new Map();
 const rideTimeoutMap = new Map();
 
+const getRegisteredRiderId = (socket, fallbackRiderId = null) => {
+  return socketToRiderMap.get(socket.id) || fallbackRiderId || null;
+};
+
 const emitToUser = (io, userId, eventName, payload) => {
   if (!userId) return;
 
@@ -196,7 +200,15 @@ const dispatchRideRequestToNearbyRiders = async (ride) => {
 
 const handleRiderAcceptRide = async (io, socket, payload) => {
   try {
-    const { rideId, riderId } = payload || {};
+    const { rideId, riderId: payloadRiderId } = payload || {};
+    const riderId = getRegisteredRiderId(socket, payloadRiderId);
+
+    if (!rideId || !riderId) {
+      socket.emit("rideAcceptFailed", {
+        message: "rideId and registered riderId are required",
+      });
+      return;
+    }
 
     const acceptedRide = await acceptRideByRider({
       rideId,
@@ -285,7 +297,15 @@ const handleRiderAcceptRide = async (io, socket, payload) => {
 
 const handleRiderDeclineRide = async (io, socket, payload) => {
   try {
-    const { rideId, riderId } = payload || {};
+    const { rideId, riderId: payloadRiderId } = payload || {};
+    const riderId = getRegisteredRiderId(socket, payloadRiderId);
+
+    if (!rideId || !riderId) {
+      socket.emit("rideDeclineFailed", {
+        message: "rideId and registered riderId are required",
+      });
+      return;
+    }
 
     const declinedRide = await declineRideByRider({ rideId, riderId });
     if (!declinedRide) {
@@ -392,10 +412,12 @@ const handleRideCancelledByCustomer = async (io, socket, payload) => {
 
 const handleRideStarted = async (io, socket, payload) => {
   try {
-    const { rideId, riderId } = payload || {};
+    const { rideId, riderId: payloadRiderId } = payload || {};
+    const riderId = getRegisteredRiderId(socket, payloadRiderId);
+
     if (!rideId || !riderId) {
       socket.emit("rideStartFailed", {
-        message: "rideId and riderId are required",
+        message: "rideId and registered riderId are required",
       });
       return;
     }
@@ -425,11 +447,12 @@ const handleRideStarted = async (io, socket, payload) => {
 
 const handleRideCompleted = async (io, socket, payload) => {
   try {
-    const { rideId, riderId } = payload || {};
+    const { rideId, riderId: payloadRiderId } = payload || {};
+    const riderId = getRegisteredRiderId(socket, payloadRiderId);
 
     if (!rideId || !riderId) {
       socket.emit("rideCompleteFailed", {
-        message: "rideId and riderId are required",
+        message: "rideId and registered riderId are required",
       });
       return;
     }
@@ -522,7 +545,9 @@ const registerRideSocketHandlers = (io, socket) => {
 
   const handleLocationUpdate = async (payload = {}) => {
     try {
-      const { riderId, lng, lat, isOnline } = payload;
+      const { riderId: payloadRiderId, lng, lat, isOnline } = payload;
+      const riderId = getRegisteredRiderId(socket, payloadRiderId);
+
       if (!riderId || lng === undefined || lat === undefined) {
         return;
       }

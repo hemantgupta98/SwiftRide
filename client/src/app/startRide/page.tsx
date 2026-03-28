@@ -40,6 +40,21 @@ const parseUserIdFromToken = (token: string) => {
   }
 };
 
+const parseRoleFromToken = (token: string) => {
+  try {
+    const base64UrlPayload = token.split(".")[1] || "";
+    const base64Payload = base64UrlPayload
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(base64UrlPayload.length / 4) * 4, "=");
+
+    const payload = JSON.parse(atob(base64Payload));
+    return payload?.role ? String(payload.role).toLowerCase() : null;
+  } catch {
+    return null;
+  }
+};
+
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
   { ssr: false },
@@ -122,6 +137,15 @@ export default function Page() {
 
     const token = localStorage.getItem("token") || "";
     return parseUserIdFromToken(token);
+  }, []);
+
+  const userRole = useMemo(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const token = localStorage.getItem("token") || "";
+    return parseRoleFromToken(token);
   }, []);
 
   const { coords: customerLiveCoords } = useLiveLocation({
@@ -592,6 +616,13 @@ export default function Page() {
       return;
     }
 
+    if (userRole && userRole !== "customer") {
+      toast.error(
+        "Only customer account can book rides. Please login as customer.",
+      );
+      return;
+    }
+
     try {
       const pickupLng = Number(finalPickup.lon);
       const pickupLat = Number(finalPickup.lat);
@@ -644,6 +675,17 @@ export default function Page() {
         error?.response?.data?.message ||
         error?.message ||
         "Unable to book ride right now";
+
+      if (
+        error?.response?.status === 403 &&
+        String(message).toLowerCase().includes("insufficient permissions")
+      ) {
+        toast.error(
+          "Session role mismatch. Login with customer account to book rides.",
+        );
+        return;
+      }
+
       toast.error(message);
     }
   };

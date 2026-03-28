@@ -3,20 +3,40 @@ import { User, Rider, googleDB } from "./auth.model.js";
 
 const VALID_ROLES = new Set(["customer", "rider"]);
 
+const normalizeRole = (role, fallback = "customer") => {
+  const normalized = String(role || "")
+    .trim()
+    .toLowerCase();
+
+  if (normalized === "rider" || normalized === "driver") {
+    return "rider";
+  }
+
+  if (
+    normalized === "customer" ||
+    normalized === "user" ||
+    normalized === "client"
+  ) {
+    return "customer";
+  }
+
+  return fallback;
+};
+
 const resolveUserById = async (id) => {
   let user = await User.findById(id).select("_id email name role");
   if (user) {
-    return { user, role: user.role || "customer" };
+    return { user, role: normalizeRole(user.role, "customer") };
   }
 
   user = await googleDB.findById(id).select("_id email name role");
   if (user) {
-    return { user, role: user.role || "customer" };
+    return { user, role: normalizeRole(user.role, "customer") };
   }
 
   user = await Rider.findById(id).select("_id email name role");
   if (user) {
-    return { user, role: user.role || "rider" };
+    return { user, role: normalizeRole(user.role, "rider") };
   }
 
   return { user: null, role: null };
@@ -57,7 +77,7 @@ export const verifyToken = async (req, res, next) => {
       return res.status(401).json({ message: "Please login first" });
     }
 
-    const tokenRole = decoded.role;
+    const tokenRole = normalizeRole(decoded.role, "");
     if (tokenRole && VALID_ROLES.has(tokenRole) && tokenRole !== role) {
       return res.status(401).json({ message: "Please login first" });
     }

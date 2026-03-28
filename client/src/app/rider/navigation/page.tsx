@@ -198,6 +198,12 @@ export default function RiderNavigationPage() {
       return;
     }
 
+    if (!riderId) {
+      setError("Rider session not found. Please login again.");
+      localStorage.removeItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
+      return;
+    }
+
     const rawRide = localStorage.getItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
     if (!rawRide) {
       setError("No active accepted ride found.");
@@ -207,8 +213,14 @@ export default function RiderNavigationPage() {
     try {
       const parsedRide = JSON.parse(rawRide) as StoredRide;
 
-      // Verify that this ride belongs to the current rider
-      if (parsedRide.riderId && riderId && parsedRide.riderId !== riderId) {
+      // Reject stale/global localStorage rides that do not carry ownership.
+      if (!parsedRide.riderId) {
+        setError("Invalid ride data found. Clearing stale ride details.");
+        localStorage.removeItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
+        return;
+      }
+
+      if (parsedRide.riderId !== riderId) {
         setError("This ride does not belong to you. Clearing ride data.");
         localStorage.removeItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
         return;

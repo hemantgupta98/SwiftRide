@@ -349,6 +349,11 @@ export default function RideControlPage() {
       setCountdown(0);
       setIsRidePopupVisible(false);
       setIsAcceptingRide(false);
+
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
+      }
+
       toast.info("Ride already accepted by another rider.");
     };
 
