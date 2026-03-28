@@ -5,6 +5,13 @@ import "leaflet/dist/leaflet.css";
 import type { DivIcon } from "leaflet";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  getEarningsStorageKey,
+  getOnlineHistoryStorageKey,
+  getOnlineActiveStartStorageKey,
+  getRiderId,
+} from "@/lib/userStorage";
+
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
   { ssr: false },
@@ -39,10 +46,6 @@ type OnlineSessionEntry = {
   durationMinutes: number;
 };
 
-const EARNINGS_STORAGE_KEY = "rider_earnings_history";
-const ONLINE_HISTORY_STORAGE_KEY = "rider_online_history";
-const ONLINE_ACTIVE_START_STORAGE_KEY = "rider_online_active_start";
-
 export default function Dashboard() {
   const [isClient, setIsClient] = useState(false);
   const [riderIcon, setRiderIcon] = useState<DivIcon | null>(null);
@@ -57,6 +60,7 @@ export default function Dashboard() {
   );
   const [nowTick, setNowTick] = useState(() => Date.now());
   const watchIdRef = useRef<number | null>(null);
+  const riderId = useMemo(() => getRiderId(), []);
 
   const mapCenter = useMemo<[number, number]>(
     () => liveCoords ?? [23.3441, 85.3096],
@@ -79,13 +83,14 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !riderId) {
       return;
     }
 
     const loadDashboardData = () => {
       try {
-        const rawEarnings = localStorage.getItem(EARNINGS_STORAGE_KEY);
+        const storageKey = getEarningsStorageKey(riderId);
+        const rawEarnings = localStorage.getItem(storageKey);
         const parsedEarnings = rawEarnings ? JSON.parse(rawEarnings) : [];
         setEarningsHistory(Array.isArray(parsedEarnings) ? parsedEarnings : []);
       } catch {
@@ -93,9 +98,8 @@ export default function Dashboard() {
       }
 
       try {
-        const rawOnlineHistory = localStorage.getItem(
-          ONLINE_HISTORY_STORAGE_KEY,
-        );
+        const storageKey = getOnlineHistoryStorageKey(riderId);
+        const rawOnlineHistory = localStorage.getItem(storageKey);
         const parsedOnlineHistory = rawOnlineHistory
           ? JSON.parse(rawOnlineHistory)
           : [];
@@ -106,7 +110,8 @@ export default function Dashboard() {
         setOnlineHistory([]);
       }
 
-      const activeStart = localStorage.getItem(ONLINE_ACTIVE_START_STORAGE_KEY);
+      const activeStartKey = getOnlineActiveStartStorageKey(riderId);
+      const activeStart = localStorage.getItem(activeStartKey);
       if (activeStart) {
         setActiveOnlineStart(activeStart);
         setOnline(true);
@@ -119,35 +124,39 @@ export default function Dashboard() {
     return () => {
       window.removeEventListener("storage", loadDashboardData);
     };
-  }, []);
+  }, [riderId]);
 
-  const persistCompletedOnlineSession = useCallback((startTime: string) => {
-    const endTime = new Date().toISOString();
-    const durationMs =
-      new Date(endTime).getTime() - new Date(startTime).getTime();
+  const persistCompletedOnlineSession = useCallback(
+    (startTime: string) => {
+      if (!riderId) return;
 
-    const completedSession: OnlineSessionEntry = {
-      id: `${new Date(startTime).getTime()}-${new Date(endTime).getTime()}`,
-      startedAt: startTime,
-      endedAt: endTime,
-      durationMinutes: Math.max(1, Math.round(durationMs / 60000)),
-    };
+      const endTime = new Date().toISOString();
+      const durationMs =
+        new Date(endTime).getTime() - new Date(startTime).getTime();
 
-    setOnlineHistory((previous) => {
-      const updatedHistory = [completedSession, ...previous].slice(0, 20);
-      localStorage.setItem(
-        ONLINE_HISTORY_STORAGE_KEY,
-        JSON.stringify(updatedHistory),
-      );
-      return updatedHistory;
-    });
+      const completedSession: OnlineSessionEntry = {
+        id: `${new Date(startTime).getTime()}-${new Date(endTime).getTime()}`,
+        startedAt: startTime,
+        endedAt: endTime,
+        durationMinutes: Math.max(1, Math.round(durationMs / 60000)),
+      };
 
-    localStorage.removeItem(ONLINE_ACTIVE_START_STORAGE_KEY);
-    setActiveOnlineStart(null);
-  }, []);
+      setOnlineHistory((previous) => {
+        const updatedHistory = [completedSession, ...previous].slice(0, 20);
+        const storageKey = getOnlineHistoryStorageKey(riderId);
+        localStorage.setItem(storageKey, JSON.stringify(updatedHistory));
+        return updatedHistory;
+      });
+
+      const activeStartKey = getOnlineActiveStartStorageKey(riderId);
+      localStorage.removeItem(activeStartKey);
+      setActiveOnlineStart(null);
+    },
+    [riderId],
+  );
 
   const handleGoOnline = useCallback(() => {
-    if (online) {
+    if (online || !riderId) {
       return;
     }
 
@@ -155,9 +164,10 @@ export default function Dashboard() {
     if (!activeOnlineStart) {
       const startTime = new Date().toISOString();
       setActiveOnlineStart(startTime);
-      localStorage.setItem(ONLINE_ACTIVE_START_STORAGE_KEY, startTime);
+      const storageKey = getOnlineActiveStartStorageKey(riderId);
+      localStorage.setItem(storageKey, startTime);
     }
-  }, [online, activeOnlineStart]);
+  }, [online, activeOnlineStart, riderId]);
 
   const handleGoOffline = useCallback(() => {
     if (!online && !activeOnlineStart) {

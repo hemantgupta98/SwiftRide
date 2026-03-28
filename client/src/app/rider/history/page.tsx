@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Search, Download, Calendar, MapPin } from "lucide-react";
+import { getEarningsStorageKey, getRiderId } from "@/lib/userStorage";
 
 type EarningsEntry = {
   id: string;
@@ -23,20 +24,20 @@ type DisplayRide = {
   earnings: string;
 };
 
-const EARNINGS_STORAGE_KEY = "rider_earnings_history";
-
 export default function RideHistoryPage() {
   const [earningsHistory, setEarningsHistory] = useState<EarningsEntry[]>([]);
   const [search, setSearch] = useState("");
+  const riderId = useMemo(() => getRiderId(), []);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !riderId) {
       return;
     }
 
     const loadEarnings = () => {
       try {
-        const rawData = localStorage.getItem(EARNINGS_STORAGE_KEY);
+        const storageKey = getEarningsStorageKey(riderId);
+        const rawData = localStorage.getItem(storageKey);
         const parsedData = rawData ? JSON.parse(rawData) : [];
         setEarningsHistory(Array.isArray(parsedData) ? parsedData : []);
       } catch {
@@ -50,7 +51,7 @@ export default function RideHistoryPage() {
     return () => {
       window.removeEventListener("storage", loadEarnings);
     };
-  }, []);
+  }, [riderId]);
 
   const displayRides: DisplayRide[] = earningsHistory.map((entry) => ({
     id: `#SR-${entry.id.slice(0, 4).toUpperCase()}`,

@@ -8,6 +8,7 @@ import { socket } from "../../../../lib/socket";
 import { useDistance } from "../../../hooks/useDistance";
 import { useLiveLocation } from "../../../hooks/useLiveLocation";
 import { useSocket } from "../../../hooks/useSocket";
+import { getRiderId, getActiveRideStorageKey } from "@/lib/userStorage";
 import "leaflet/dist/leaflet.css";
 
 type LatLng = [number, number];
@@ -35,23 +36,7 @@ type StoredRide = {
 
 type NavigationStage = "toPickup" | "toDrop" | "cancelled";
 
-const RIDER_ACTIVE_RIDE_STORAGE_KEY = "rider_active_navigation_ride";
 const ARRIVAL_THRESHOLD_METERS = 3;
-
-const parseUserIdFromToken = (token: string) => {
-  try {
-    const base64UrlPayload = token.split(".")[1] || "";
-    const base64Payload = base64UrlPayload
-      .replace(/-/g, "+")
-      .replace(/_/g, "/")
-      .padEnd(Math.ceil(base64UrlPayload.length / 4) * 4, "=");
-
-    const payload = JSON.parse(atob(base64Payload));
-    return payload?.id ? String(payload.id) : null;
-  } catch {
-    return null;
-  }
-};
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
@@ -100,6 +85,7 @@ export default function RiderNavigationPage() {
   const [error, setError] = useState("");
   const [stage, setStage] = useState<NavigationStage>("toPickup");
   const [locationWatcher, setLocationWatcher] = useState<number | null>(null);
+  const riderId = useMemo(() => getRiderId(), []);
 
   const arrivalToastShownRef = useRef(false);
 
@@ -123,8 +109,9 @@ export default function RiderNavigationPage() {
       }
 
       // 3. Clear storage
-      if (typeof window !== "undefined") {
-        localStorage.removeItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
+      if (typeof window !== "undefined" && riderId) {
+        const activeRideKey = getActiveRideStorageKey(riderId);
+        localStorage.removeItem(activeRideKey);
       }
 
       // 4. Reset navigation stage
@@ -148,17 +135,8 @@ export default function RiderNavigationPage() {
 
       return () => clearTimeout(redirectTimeout);
     },
-    [locationWatcher, router],
+    [locationWatcher, router, riderId],
   );
-
-  const riderId = useMemo(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-
-    const token = localStorage.getItem("token") || "";
-    return parseUserIdFromToken(token);
-  }, []);
 
   useSocket({
     enabled: true,
@@ -200,11 +178,11 @@ export default function RiderNavigationPage() {
 
     if (!riderId) {
       setError("Rider session not found. Please login again.");
-      localStorage.removeItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
       return;
     }
 
-    const rawRide = localStorage.getItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
+    const activeRideKey = getActiveRideStorageKey(riderId);
+    const rawRide = localStorage.getItem(activeRideKey);
     if (!rawRide) {
       setError("No active accepted ride found.");
       return;
@@ -216,13 +194,13 @@ export default function RiderNavigationPage() {
       // Reject stale/global localStorage rides that do not carry ownership.
       if (!parsedRide.riderId) {
         setError("Invalid ride data found. Clearing stale ride details.");
-        localStorage.removeItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
+        localStorage.removeItem(activeRideKey);
         return;
       }
 
       if (parsedRide.riderId !== riderId) {
         setError("This ride does not belong to you. Clearing ride data.");
-        localStorage.removeItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
+        localStorage.removeItem(activeRideKey);
         return;
       }
 

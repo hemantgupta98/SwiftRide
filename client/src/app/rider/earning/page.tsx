@@ -1,7 +1,12 @@
 "use client";
 
 import { ArrowUpRight, Wallet, Download, Filter } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import {
+  getEarningsStorageKey,
+  getPayoutsStorageKey,
+  getRiderId,
+} from "@/lib/userStorage";
 
 type EarningsEntry = {
   id: string;
@@ -19,12 +24,11 @@ type PayoutEntry = {
   status: string;
 };
 
-const EARNINGS_STORAGE_KEY = "rider_earnings_history";
-const PAYOUTS_STORAGE_KEY = "rider_payouts_history";
-
 export default function EarningsPage() {
   const [earningsHistory, setEarningsHistory] = useState<EarningsEntry[]>([]);
   const [payoutsHistory, setPayoutsHistory] = useState<PayoutEntry[]>([]);
+  const riderId = useMemo(() => getRiderId(), []);
+
   const weeklyBarHeights = [
     "h-2/5",
     "h-3/5",
@@ -36,13 +40,14 @@ export default function EarningsPage() {
   ];
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !riderId) {
       return;
     }
 
     const loadEarnings = () => {
       try {
-        const rawData = localStorage.getItem(EARNINGS_STORAGE_KEY);
+        const storageKey = getEarningsStorageKey(riderId);
+        const rawData = localStorage.getItem(storageKey);
         const parsedData = rawData ? JSON.parse(rawData) : [];
         setEarningsHistory(Array.isArray(parsedData) ? parsedData : []);
       } catch {
@@ -52,7 +57,8 @@ export default function EarningsPage() {
 
     const loadPayouts = () => {
       try {
-        const rawData = localStorage.getItem(PAYOUTS_STORAGE_KEY);
+        const storageKey = getPayoutsStorageKey(riderId);
+        const rawData = localStorage.getItem(storageKey);
         const parsedData = rawData ? JSON.parse(rawData) : [];
         setPayoutsHistory(Array.isArray(parsedData) ? parsedData : []);
       } catch {
@@ -69,7 +75,7 @@ export default function EarningsPage() {
       window.removeEventListener("storage", loadEarnings);
       window.removeEventListener("storage", loadPayouts);
     };
-  }, []);
+  }, [riderId]);
 
   const completedRidesCount = earningsHistory.length;
   const totalEarnings = earningsHistory.reduce(

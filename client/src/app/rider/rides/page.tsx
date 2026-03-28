@@ -13,10 +13,11 @@ import {
 import { socket } from "../../../../lib/socket";
 import { playHindiRideAlert } from "../../../../lib/rideAlertAudio";
 import { Toaster, toast } from "sonner";
-
-const EARNINGS_STORAGE_KEY = "rider_earnings_history";
-const RIDER_PENDING_RIDE_REQUEST_KEY = "rider_pending_ride_request";
-const RIDE_REQUEST_WAIT_SECONDS = 30;
+import {
+  getEarningsStorageKey,
+  getActiveRideStorageKey,
+  getRiderId,
+} from "@/lib/userStorage";
 
 type EarningsEntry = {
   id: string;
@@ -57,22 +58,7 @@ type RideRequestPayload = {
   message?: string;
 };
 
-const RIDER_ACTIVE_RIDE_STORAGE_KEY = "rider_active_navigation_ride";
-
-const parseUserIdFromToken = (token: string) => {
-  try {
-    const base64UrlPayload = token.split(".")[1] || "";
-    const base64Payload = base64UrlPayload
-      .replace(/-/g, "+")
-      .replace(/_/g, "/")
-      .padEnd(Math.ceil(base64UrlPayload.length / 4) * 4, "=");
-
-    const payload = JSON.parse(atob(base64Payload));
-    return payload?.id ? String(payload.id) : null;
-  } catch {
-    return null;
-  }
-};
+const RIDE_REQUEST_WAIT_SECONDS = 30;
 
 const formatCoordinates = (
   coordinates?: [number, number],
@@ -103,6 +89,7 @@ export default function RideControlPage() {
   const countdownRef = useRef<number>(0);
   const rideAlertLoopRef = useRef<number | null>(null);
 
+  const riderId = useMemo(() => getRiderId(), []);
   const stopRideAlertLoop = useCallback(() => {
     if (rideAlertLoopRef.current !== null) {
       window.clearInterval(rideAlertLoopRef.current);
@@ -153,11 +140,12 @@ export default function RideControlPage() {
   };
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !riderId) {
       return;
     }
 
-    const pendingRide = localStorage.getItem(RIDER_PENDING_RIDE_REQUEST_KEY);
+    const pendingRideKey = `rider_${riderId}_pending_ride_request`;
+    const pendingRide = localStorage.getItem(pendingRideKey);
     if (!pendingRide) {
       return;
     }
@@ -175,18 +163,19 @@ export default function RideControlPage() {
     } catch {
       setServerMessage("Failed to load pending ride request.");
     } finally {
-      localStorage.removeItem(RIDER_PENDING_RIDE_REQUEST_KEY);
+      localStorage.removeItem(pendingRideKey);
     }
-  }, []);
+  }, [riderId]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !riderId) {
       return;
     }
 
     const loadEarnings = () => {
       try {
-        const rawData = localStorage.getItem(EARNINGS_STORAGE_KEY);
+        const storageKey = getEarningsStorageKey(riderId);
+        const rawData = localStorage.getItem(storageKey);
         const parsedData = rawData ? JSON.parse(rawData) : [];
         setEarningsHistory(Array.isArray(parsedData) ? parsedData : []);
       } catch {
@@ -200,7 +189,7 @@ export default function RideControlPage() {
     return () => {
       window.removeEventListener("storage", loadEarnings);
     };
-  }, []);
+  }, [riderId]);
 
   useEffect(() => {
     activeRideRef.current = activeRide;
@@ -249,30 +238,24 @@ export default function RideControlPage() {
     };
 
     try {
-      const existingRaw = localStorage.getItem(EARNINGS_STORAGE_KEY);
+      if (!riderId) return;
+
+      const storageKey = getEarningsStorageKey(riderId);
+      const existingRaw = localStorage.getItem(storageKey);
       const existingParsed = existingRaw ? JSON.parse(existingRaw) : [];
       const safeEntries = Array.isArray(existingParsed) ? existingParsed : [];
 
       localStorage.setItem(
-        EARNINGS_STORAGE_KEY,
+        storageKey,
         JSON.stringify([completedEntry, ...safeEntries]),
       );
     } catch {
-      localStorage.setItem(
-        EARNINGS_STORAGE_KEY,
-        JSON.stringify([completedEntry]),
-      );
+      if (riderId) {
+        const storageKey = getEarningsStorageKey(riderId);
+        localStorage.setItem(storageKey, JSON.stringify([completedEntry]));
+      }
     }
   };
-
-  const riderId = useMemo(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-
-    const token = localStorage.getItem("token") || "";
-    return parseUserIdFromToken(token);
-  }, []);
 
   useEffect(() => {
     const sendLiveLocation = () => {
@@ -337,8 +320,9 @@ export default function RideControlPage() {
       setServerMessage(payload.message || "New ride request received");
       setIsAcceptingRide(false);
       playHindiRideAlert();
-      if (typeof window !== "undefined") {
-        localStorage.removeItem(RIDER_PENDING_RIDE_REQUEST_KEY);
+      if (typeof window !== "undefined" && riderId) {
+        const pendingRideKey = `rider_${riderId}_pending_ride_request`;
+        localStorage.removeItem(pendingRideKey);
       }
       toast("New ride request received");
     };
@@ -350,8 +334,9 @@ export default function RideControlPage() {
       setIsRidePopupVisible(false);
       setIsAcceptingRide(false);
 
-      if (typeof window !== "undefined") {
-        localStorage.removeItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
+      if (typeof window !== "undefined" && riderId) {
+        const activeRideKey = getActiveRideStorageKey(riderId);
+        localStorage.removeItem(activeRideKey);
       }
 
       toast.info("Ride already accepted by another rider.");
@@ -363,8 +348,9 @@ export default function RideControlPage() {
         setOngoingRide(acceptedRide);
 
         // Store ride with riderId for verification in navigation page
+        const activeRideKey = getActiveRideStorageKey(riderId);
         localStorage.setItem(
-          RIDER_ACTIVE_RIDE_STORAGE_KEY,
+          activeRideKey,
           JSON.stringify({ ...acceptedRide, riderId }),
         );
       }
@@ -403,8 +389,9 @@ export default function RideControlPage() {
       setIsRidePopupVisible(false);
       setIsAcceptingRide(false);
 
-      if (typeof window !== "undefined") {
-        localStorage.removeItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
+      if (typeof window !== "undefined" && riderId) {
+        const activeRideKey = getActiveRideStorageKey(riderId);
+        localStorage.removeItem(activeRideKey);
       }
 
       toast.error(payload?.message || "Customer cancelled the ride. Sorry!");
