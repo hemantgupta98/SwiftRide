@@ -7,7 +7,7 @@ import {
   completeNavigation,
   cancelNavigation,
 } from "./navigation.controllers.js";
-import authMiddleware from "../auth/auth.middleware.js";
+import { authMiddleware } from "../auth/auth.middleware.js";
 
 const router = express.Router();
 
