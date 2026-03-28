@@ -7,12 +7,12 @@ import {
   completeNavigation,
   cancelNavigation,
 } from "./navigation.controllers.js";
-import { authMiddleware } from "../auth/auth.middleware.js";
+import { verifyToken } from "../auth/auth.middleware.js";
 
 const router = express.Router();
 
 // Create a new navigation history record
-router.post("/", authMiddleware, createNavigationHistory);
+router.post("/", verifyToken, createNavigationHistory);
 
 // Get navigation history for a rider
 router.get("/rider/:riderId", getRiderNavigationHistory);
@@ -21,12 +21,12 @@ router.get("/rider/:riderId", getRiderNavigationHistory);
 router.get("/rider/:riderId/active", getActiveNavigation);
 
 // Update navigation history (add location updates, etc.)
-router.patch("/:navigationId", authMiddleware, updateNavigationHistory);
+router.patch("/:navigationId", verifyToken, updateNavigationHistory);
 
 // Complete a navigation
-router.put("/:navigationId/complete", authMiddleware, completeNavigation);
+router.put("/:navigationId/complete", verifyToken, completeNavigation);
 
 // Cancel a navigation
-router.put("/:navigationId/cancel", authMiddleware, cancelNavigation);
+router.put("/:navigationId/cancel", verifyToken, cancelNavigation);
 
 export default router;
