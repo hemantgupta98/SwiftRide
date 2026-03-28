@@ -784,9 +784,6 @@ export default function Page() {
             Distance: {distance} km | Time: {duration} min | Cost: Rs.{" "}
             {fare.toFixed(2)}
           </div>
-          <p className="mt-1 text-xs text-gray-500">
-            Ride stage: {rideStage.toUpperCase()} | Socket: {socketStatus}
-          </p>
         </div>
       )}
 

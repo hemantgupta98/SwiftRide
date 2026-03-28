@@ -51,6 +51,7 @@ export const createUser = async (data) => {
   return await User.create({
     ...data,
     email: normalizedEmail,
+    role: "customer",
   });
 };
 
@@ -62,6 +63,7 @@ export const createRider = async (data) => {
   return await Rider.create({
     ...data,
     email: normalizedEmail,
+    role: "rider",
   });
 };
 export const createResetPasswordRecord = async (user) => {

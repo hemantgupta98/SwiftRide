@@ -118,6 +118,19 @@ const resolveUserByIdAndRole = async ({ userId, role }) => {
   return user;
 };
 
+const getPermissionsByRole = (role) => {
+  if (role === "rider") {
+    return {
+      canAcceptRide: true,
+      canEarnMoney: true,
+    };
+  }
+
+  return {
+    canBookRide: true,
+  };
+};
+
 export const signup = async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -129,7 +142,6 @@ export const signup = async (req, res) => {
     }
 
     const user = await createUser({ name, email, password });
-    const issueSignupToken = process.env.ISSUE_SIGNUP_TOKEN !== "false";
     const { accessToken } = await issueTokenPairAndPersist({
       res,
       user,
@@ -139,11 +151,12 @@ export const signup = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "User created successfully",
-      ...(issueSignupToken ? { token: accessToken } : {}),
+      token: accessToken,
       user: {
         id: user._id,
         email: user.email,
         role: "customer",
+        permissions: getPermissionsByRole("customer"),
       },
     });
   } catch (error) {
@@ -169,7 +182,6 @@ export const ridersignup = async (req, res) => {
       vechileNumber,
       vechileType,
     });
-    const issueSignupToken = process.env.ISSUE_SIGNUP_TOKEN !== "false";
     const { accessToken } = await issueTokenPairAndPersist({
       res,
       user,
@@ -179,11 +191,12 @@ export const ridersignup = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Rider created successfully",
-      ...(issueSignupToken ? { token: accessToken } : {}),
+      token: accessToken,
       user: {
         id: user._id,
         email: user.email,
         role: "rider",
+        permissions: getPermissionsByRole("rider"),
       },
     });
   } catch (error) {
@@ -257,6 +270,7 @@ export const getProfile = async (req, res) => {
         data: {
           userId: rider._id,
           role: "rider",
+          permissions: getPermissionsByRole("rider"),
           name: rider.name || "",
           email: rider.email || "",
           username: rider.username || "",
@@ -291,6 +305,7 @@ export const getProfile = async (req, res) => {
       data: {
         userId: user._id,
         role: "customer",
+        permissions: getPermissionsByRole("customer"),
         name: user.name || "",
         email: user.email || "",
         username: user.username || "",
@@ -431,6 +446,7 @@ export const Userlogin = async (req, res) => {
         id: user._id,
         email: user.email,
         role: "customer",
+        permissions: getPermissionsByRole("customer"),
       },
     });
   } catch (error) {
@@ -473,6 +489,7 @@ export const Riderlogin = async (req, res) => {
         id: user._id,
         email: user.email,
         role: "rider",
+        permissions: getPermissionsByRole("rider"),
       },
     });
   } catch (error) {
@@ -749,6 +766,7 @@ export const refreshAuthToken = async (req, res) => {
         id: user._id,
         email: user.email,
         role,
+        permissions: getPermissionsByRole(role),
       },
     });
   } catch (error) {
