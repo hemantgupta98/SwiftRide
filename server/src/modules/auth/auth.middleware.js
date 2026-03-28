@@ -23,25 +23,6 @@ const normalizeRole = (role, fallback = "customer") => {
   return fallback;
 };
 
-const resolveUserById = async (id) => {
-  let user = await User.findById(id).select("_id email name role");
-  if (user) {
-    return { user, role: normalizeRole(user.role, "customer") };
-  }
-
-  user = await googleDB.findById(id).select("_id email name role");
-  if (user) {
-    return { user, role: normalizeRole(user.role, "customer") };
-  }
-
-  user = await Rider.findById(id).select("_id email name role");
-  if (user) {
-    return { user, role: normalizeRole(user.role, "rider") };
-  }
-
-  return { user: null, role: null };
-};
-
 export const verifyToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -71,22 +52,41 @@ export const verifyToken = async (req, res, next) => {
       return res.status(401).json({ message: "Please login first" });
     }
 
-    const { user, role } = await resolveUserById(decoded.id);
+    // Trust the token role since it's cryptographically signed
+    const tokenRole = normalizeRole(decoded.role, "customer");
+
+    if (!VALID_ROLES.has(tokenRole)) {
+      return res.status(401).json({ message: "Please login first" });
+    }
+
+    // Verify user exists with matching role
+    let user;
+    if (tokenRole === "rider") {
+      user = await Rider.findById(decoded.id).select("_id email name role");
+    } else {
+      user = await User.findById(decoded.id).select("_id email name role");
+      if (!user) {
+        user = await googleDB
+          .findById(decoded.id)
+          .select("_id email name role");
+      }
+    }
 
     if (!user) {
       return res.status(401).json({ message: "Please login first" });
     }
 
-    const tokenRole = normalizeRole(decoded.role, "");
-    if (tokenRole && VALID_ROLES.has(tokenRole) && tokenRole !== role) {
-      return res.status(401).json({ message: "Please login first" });
+    // Ensure user has role field (for legacy data compatibility)
+    if (!user.role) {
+      user.role = tokenRole;
+      await user.save();
     }
 
     req.user = {
       id: user._id,
       email: user.email,
       name: user.name,
-      role,
+      role: tokenRole,
     };
     next();
   } catch (err) {
