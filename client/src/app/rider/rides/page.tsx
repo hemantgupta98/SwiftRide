@@ -353,13 +353,14 @@ export default function RideControlPage() {
     };
 
     const onRideAcceptSuccess = () => {
-      if (activeRideRef.current) {
+      if (activeRideRef.current && riderId) {
         const acceptedRide = activeRideRef.current;
         setOngoingRide(acceptedRide);
 
+        // Store ride with riderId for verification in navigation page
         localStorage.setItem(
           RIDER_ACTIVE_RIDE_STORAGE_KEY,
-          JSON.stringify(acceptedRide),
+          JSON.stringify({ ...acceptedRide, riderId }),
         );
       }
 

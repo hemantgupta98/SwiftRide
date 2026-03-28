@@ -206,6 +206,14 @@ export default function RiderNavigationPage() {
 
     try {
       const parsedRide = JSON.parse(rawRide) as StoredRide;
+
+      // Verify that this ride belongs to the current rider
+      if (parsedRide.riderId && riderId && parsedRide.riderId !== riderId) {
+        setError("This ride does not belong to you. Clearing ride data.");
+        localStorage.removeItem(RIDER_ACTIVE_RIDE_STORAGE_KEY);
+        return;
+      }
+
       const pickup = parsedRide.pickupLocation || parsedRide.pickup;
       const drop = parsedRide.dropLocation || parsedRide.drop;
 
@@ -227,7 +235,7 @@ export default function RiderNavigationPage() {
     } catch {
       setError("Unable to load accepted ride details.");
     }
-  }, []);
+  }, [riderId]);
 
   useEffect(() => {
     if (!ride?.rideId) {
@@ -257,16 +265,31 @@ export default function RiderNavigationPage() {
       cleanupNavigation("completed");
     };
 
+    const onRideTaken = (payload: {
+      rideId?: string;
+      acceptedBy?: string;
+      message?: string;
+    }) => {
+      if (!payload?.rideId || payload.rideId !== ride.rideId) {
+        return;
+      }
+
+      // Another rider accepted this ride while we were in navigation
+      cleanupNavigation("cancelled");
+    };
+
     socket.on("rideCancelled", onRideCancelled);
     socket.on("ride_cancelled", onRideCancelled);
     socket.on("rideCompleted", onRideCompleted);
     socket.on("ride_completed", onRideCompleted);
+    socket.on("rideTaken", onRideTaken);
 
     return () => {
       socket.off("rideCancelled", onRideCancelled);
       socket.off("ride_cancelled", onRideCancelled);
       socket.off("rideCompleted", onRideCompleted);
       socket.off("ride_completed", onRideCompleted);
+      socket.off("rideTaken", onRideTaken);
     };
   }, [ride?.rideId, cleanupNavigation]);
 

@@ -256,7 +256,32 @@ const acceptRideByRider = async ({ rideId, riderId }) => {
     throw new Error("Invalid rideId or riderId");
   }
 
-  const ride = await Ride.findOneAndUpdate(
+  // First, verify that the rider is authorized to accept this ride
+  const ride = await Ride.findById(rideId);
+
+  if (!ride) {
+    throw new Error("Ride not found");
+  }
+
+  if (ride.status !== "searching") {
+    throw new Error("Ride is no longer available");
+  }
+
+  if (ride.riderId) {
+    throw new Error("Ride has already been accepted");
+  }
+
+  // Verify that this rider was requested for this ride
+  const isRiderRequested = ride.requestedRiderIds?.some(
+    (id) => String(id) === String(riderId),
+  );
+
+  if (!isRiderRequested) {
+    throw new Error("Unauthorized: This ride was not offered to you");
+  }
+
+  // Now accept the ride
+  const acceptedRide = await Ride.findOneAndUpdate(
     {
       _id: rideId,
       status: "searching",
@@ -272,7 +297,7 @@ const acceptRideByRider = async ({ rideId, riderId }) => {
     { returnDocument: "after" },
   );
 
-  return ride;
+  return acceptedRide;
 };
 
 const declineRideByRider = async ({ rideId, riderId }) => {
