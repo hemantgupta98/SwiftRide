@@ -29,7 +29,9 @@ function formatRouteLabel(pathname: string) {
     .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
-const RIDER_PENDING_RIDE_REQUEST_KEY = "rider_pending_ride_request";
+const getPendingRideStorageKey = (riderId: string) =>
+  `rider_${riderId}_pending_ride_request`;
+const LEGACY_PENDING_RIDE_STORAGE_KEY = "rider_pending_ride_request";
 
 const parseUserIdFromToken = (token: string) => {
   try {
@@ -111,8 +113,15 @@ export default function AppShellRider({ children }: AppShellRiderProps) {
 
     const onNewRideRequest = (payload: unknown) => {
       if (typeof window !== "undefined") {
+        if (riderId) {
+          localStorage.setItem(
+            getPendingRideStorageKey(riderId),
+            JSON.stringify(payload),
+          );
+        }
+
         localStorage.setItem(
-          RIDER_PENDING_RIDE_REQUEST_KEY,
+          LEGACY_PENDING_RIDE_STORAGE_KEY,
           JSON.stringify(payload),
         );
       }

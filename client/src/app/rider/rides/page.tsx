@@ -59,6 +59,7 @@ type RideRequestPayload = {
 };
 
 const RIDE_REQUEST_WAIT_SECONDS = 30;
+const LEGACY_PENDING_RIDE_STORAGE_KEY = "rider_pending_ride_request";
 
 const formatCoordinates = (
   coordinates?: [number, number],
@@ -145,7 +146,9 @@ export default function RideControlPage() {
     }
 
     const pendingRideKey = `rider_${riderId}_pending_ride_request`;
-    const pendingRide = localStorage.getItem(pendingRideKey);
+    const pendingRide =
+      localStorage.getItem(pendingRideKey) ||
+      localStorage.getItem(LEGACY_PENDING_RIDE_STORAGE_KEY);
     if (!pendingRide) {
       return;
     }
@@ -164,6 +167,7 @@ export default function RideControlPage() {
       setServerMessage("Failed to load pending ride request.");
     } finally {
       localStorage.removeItem(pendingRideKey);
+      localStorage.removeItem(LEGACY_PENDING_RIDE_STORAGE_KEY);
     }
   }, [riderId]);
 
