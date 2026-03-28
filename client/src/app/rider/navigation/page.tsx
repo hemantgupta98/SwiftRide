@@ -176,8 +176,8 @@ export default function RiderNavigationPage() {
 
   const { coords: liveCoords } = useLiveLocation({
     enabled: Boolean(riderId && stage !== "cancelled"),
-    throttleMs: 2000,
-    minDistanceMeters: 2,
+    throttleMs: 20000,
+    minDistanceMeters: 10,
     onUpdate: (coords) => {
       if (!riderId) {
         return;
